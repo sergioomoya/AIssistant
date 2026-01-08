@@ -129,13 +129,26 @@ class WhisperEngine:
         audio_path: str,
         language: Optional[str]
     ) -> Dict[str, Any]:
-        """Transcripción con faster-whisper."""
+        """
+        Transcripción con faster-whisper (Next-Gen 2026).
+        
+        Optimizado para large-v3-turbo con VAD filter activado.
+        """
+        # Usar VAD filter por defecto (mejora calidad)
+        vad_filter = settings.WHISPER_VAD_FILTER
+        
         segments, info = self.model.transcribe(
             audio_path,
             language=language if language != "auto" else None,
             beam_size=5,
             word_timestamps=True,
-            vad_filter=True
+            vad_filter=vad_filter,
+            # Optimizaciones para large-v3-turbo
+            condition_on_previous_text=True,
+            initial_prompt=None,  # Se puede mejorar con contexto previo
+            compression_ratio_threshold=2.4,
+            logprob_threshold=-1.0,
+            no_speech_threshold=0.6
         )
         
         # Procesar segmentos

@@ -45,16 +45,18 @@ class Settings(BaseSettings):
         """Obtener lista de orígenes CORS."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
-    # ----- Whisper (Transcripción) -----
-    WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large", "large-v3"] = "base"
+    # ----- Whisper (Transcripción Next-Gen 2026) -----
+    WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large", "large-v3", "large-v3-turbo"] = "large-v3-turbo"
     WHISPER_DEVICE: str = "auto"  # auto, cpu, cuda
-    WHISPER_COMPUTE_TYPE: str = "int8"  # int8, float16, float32
+    WHISPER_COMPUTE_TYPE: str = "int8"  # int8, float16, float32 (int8 para CPU, float16 para GPU)
+    WHISPER_VAD_FILTER: bool = True  # Voice Activity Detection
     
     # ----- API Keys (Modo Híbrido/Nube) -----
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     GOOGLE_AI_API_KEY: str = ""
     DEEPGRAM_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""  # Para DeepSeek R1 API (alternativa a local)
     
     # ----- OAuth Providers -----
     GOOGLE_CLIENT_ID: str = ""
@@ -63,6 +65,12 @@ class Settings(BaseSettings):
     # ----- Ollama (Modo Local) -----
     OLLAMA_BASE_URL: str = "http://ollama:11434"
     OLLAMA_MODEL: str = "llama3.2"
+    
+    # ----- LLM Provider (Next-Gen 2026) -----
+    LLM_PROVIDER: str = "litellm"  # litellm para abstracción unificada
+    LLM_MODEL_NAME: str = "ollama/deepseek-r1"  # Modelo por defecto (local)
+    # Opciones: ollama/deepseek-r1, gpt-5.2, azure/gpt-5.2, anthropic/claude-3.5-sonnet, etc.
+    LLM_FALLBACK_MODELS: list[str] = []  # Modelos de respaldo si el principal falla
     
     # ----- HuggingFace (Diarización) -----
     HF_TOKEN: str = ""

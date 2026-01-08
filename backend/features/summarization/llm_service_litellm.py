@@ -56,25 +56,63 @@ class LiteLLMService:
         return env_keys.get(provider)
     
     def _get_llm_model(self) -> str:
-        """Obtener modelo LLM preferido del usuario."""
+        """
+        Obtener modelo LLM preferido del usuario (Next-Gen 2026).
+        
+        Prioridad:
+        1. Preferencia del usuario
+        2. Configuración global (LLM_MODEL_NAME)
+        3. Modelo por defecto según modo de despliegue
+        """
         preferences = self.user_config.get('preferences', {})
-        model = preferences.get('llm_model', 'gpt-4o-mini')
+        user_model = preferences.get('llm_model')
         
-        # Mapear modelos a formato LiteLLM
-        model_mapping = {
-            'gpt-4o-mini': 'gpt-4o-mini',
-            'gpt-4o': 'gpt-4o',
-            'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
-            'gemini-1.5-flash': 'gemini/gemini-1.5-flash',
-            'gemini-1.5-pro': 'gemini/gemini-1.5-pro',
-            'deepseek-chat': 'deepseek/deepseek-chat',
-            'deepseek-coder': 'deepseek/deepseek-coder',
-            'llama3.2': 'ollama/llama3.2',
-            'mistral': 'ollama/mistral',
-            'phi3': 'ollama/phi3',
-        }
+        # Si el usuario tiene un modelo configurado, usarlo
+        if user_model:
+            # Mapear modelos a formato LiteLLM (Next-Gen 2026)
+            model_mapping = {
+                # Next-Gen 2026 Models
+                'gpt-5.2': 'gpt-5.2',  # Cuando esté disponible
+                'gpt-5': 'gpt-5',
+                'deepseek-r1': 'ollama/deepseek-r1',  # Local vía Ollama
+                'deepseek-r1-api': 'deepseek/deepseek-r1',  # API
+                # Modelos actuales
+                'gpt-4o-mini': 'gpt-4o-mini',
+                'gpt-4o': 'gpt-4o',
+                'gpt-4-turbo': 'gpt-4-turbo-preview',
+                'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
+                'claude-3-opus': 'claude-3-opus-20240229',
+                'gemini-1.5-flash': 'gemini/gemini-1.5-flash',
+                'gemini-1.5-pro': 'gemini/gemini-1.5-pro',
+                'deepseek-chat': 'deepseek/deepseek-chat',
+                'deepseek-coder': 'deepseek/deepseek-coder',
+                # Modelos locales (Ollama)
+                'llama3.2': 'ollama/llama3.2',
+                'llama3.1': 'ollama/llama3.1',
+                'mistral': 'ollama/mistral',
+                'phi3': 'ollama/phi3',
+            }
+            
+            mapped_model = model_mapping.get(user_model, user_model)
+            # Si el modelo ya tiene el prefijo correcto, usarlo directamente
+            if '/' in mapped_model or mapped_model.startswith('gpt-') or mapped_model.startswith('claude-'):
+                return mapped_model
+            # Si no, asumir que es un modelo de Ollama
+            if self.deployment_mode == "local":
+                return f"ollama/{mapped_model}"
+            return mapped_model
         
-        return model_mapping.get(model, model)
+        # Fallback a configuración global
+        if settings.LLM_MODEL_NAME:
+            return settings.LLM_MODEL_NAME
+        
+        # Fallback por modo de despliegue
+        if self.deployment_mode == "local":
+            return "ollama/deepseek-r1"  # Next-Gen 2026: DeepSeek R1 local
+        elif self.deployment_mode == "cloud":
+            return "gpt-5.2"  # Next-Gen 2026: GPT-5.2 en nube
+        else:
+            return "gpt-4o-mini"  # Híbrido: modelo balanceado
     
     def _initialize_litellm(self):
         """Inicializar LiteLLM con configuración de API keys."""
@@ -99,6 +137,10 @@ class LiteLLMService:
             if deepseek_key := self._get_api_key('deepseek'):
                 api_keys['deepseek'] = deepseek_key
                 os.environ['DEEPSEEK_API_KEY'] = deepseek_key
+            
+            # Añadir DeepSeek desde config si está disponible
+            if settings.DEEPSEEK_API_KEY:
+                os.environ['DEEPSEEK_API_KEY'] = settings.DEEPSEEK_API_KEY
             
             # Configurar Ollama si está en modo local
             if self.deployment_mode == "local":

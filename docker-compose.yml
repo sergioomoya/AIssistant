@@ -14,11 +14,20 @@ services:
     environment:
       - DATABASE_URL=postgresql://aissistant:aissistant_secret@postgres:5432/aissistant_db
       - REDIS_URL=redis://redis:6379/0
-      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      # Next-Gen 2026: Whisper large-v3-turbo
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-large-v3-turbo}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-auto}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - WHISPER_VAD_FILTER=${WHISPER_VAD_FILTER:-true}
+      # API Keys
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      # Next-Gen 2026: LLM Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-litellm}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-ollama/deepseek-r1}
       - OLLAMA_BASE_URL=http://ollama:11434
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-hybrid}
       - SECRET_KEY=${SECRET_KEY:-development-secret-key-change-in-production}
@@ -107,12 +116,20 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
-      - WHISPER_DEVICE=cpu
+      # Next-Gen 2026: Whisper large-v3-turbo
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-large-v3-turbo}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - WHISPER_VAD_FILTER=${WHISPER_VAD_FILTER:-true}
+      # API Keys
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      # Next-Gen 2026: LLM Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-litellm}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-ollama/deepseek-r1}
       - OLLAMA_BASE_URL=http://ollama:11434
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-hybrid}
       - SECRET_KEY=${SECRET_KEY:-development-secret-key-change-in-production}
