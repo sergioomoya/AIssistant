@@ -305,40 +305,58 @@ async def update_preferences(
 async def get_available_transcription_models(
     current_user: dict = Depends(get_current_user)
 ):
-    """Obtener modelos de transcripción disponibles."""
+    """Obtener modelos de transcripción disponibles (Next-Gen 2026)."""
     return {
         "local_models": [
-            {"id": "whisper-tiny", "name": "Whisper Tiny", "size": "~75MB", "speed": "Muy rápido", "accuracy": "Básica"},
-            {"id": "whisper-base", "name": "Whisper Base", "size": "~140MB", "speed": "Rápido", "accuracy": "Buena"},
-            {"id": "whisper-small", "name": "Whisper Small", "size": "~460MB", "speed": "Moderado", "accuracy": "Muy buena"},
-            {"id": "whisper-medium", "name": "Whisper Medium", "size": "~1.5GB", "speed": "Lento", "accuracy": "Excelente"},
-            {"id": "whisper-large-v3", "name": "Whisper Large v3", "size": "~3GB", "speed": "Muy lento", "accuracy": "Máxima"}
+            {"id": "tiny", "name": "Whisper Tiny", "size": "~75MB", "speed": "Muy rápido", "accuracy": "Básica"},
+            {"id": "base", "name": "Whisper Base", "size": "~140MB", "speed": "Rápido", "accuracy": "Buena"},
+            {"id": "small", "name": "Whisper Small", "size": "~460MB", "speed": "Moderado", "accuracy": "Muy buena"},
+            {"id": "medium", "name": "Whisper Medium", "size": "~1.5GB", "speed": "Lento", "accuracy": "Excelente"},
+            {"id": "large-v3", "name": "Whisper Large v3", "size": "~3GB", "speed": "Muy lento", "accuracy": "Máxima"},
+            {"id": "large-v3-turbo", "name": "Whisper Large v3 Turbo (Next-Gen 2026)", "size": "~3GB", "speed": "Optimizado", "accuracy": "Máxima", "recommended": True}
         ],
         "cloud_models": [
+            {"id": "deepgram-nova-3", "name": "Deepgram Nova 3 (Next-Gen 2026)", "latency": "<200ms", "accuracy": "Máxima", "recommended": True},
             {"id": "deepgram-nova-2", "name": "Deepgram Nova 2", "latency": "<300ms", "accuracy": "Excelente"},
             {"id": "openai-whisper-1", "name": "OpenAI Whisper", "latency": "~1s", "accuracy": "Máxima"}
         ],
-        "recommended": "whisper-base" if settings.DEPLOYMENT_MODE == "local" else "deepgram-nova-2"
+        "recommended": "large-v3-turbo" if settings.DEPLOYMENT_MODE == "local" else "deepgram-nova-3"
     }
 
 
 @router.get("/models/llm", response_model=LLMModelsResponse)
 async def get_available_llm_models(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
-    """Obtener modelos LLM disponibles."""
+    """Obtener modelos LLM disponibles (Next-Gen 2026)."""
+    # Obtener modelo actual del usuario
+    result = await db.execute(
+        select(User).where(User.id == int(current_user["user_id"]))
+    )
+    user = result.scalar_one_or_none()
+    preferences = user.preferences or {} if user else {}
+    current_model = preferences.get("llm_model") or (settings.LLM_MODEL_NAME if settings.LLM_MODEL_NAME else (settings.OLLAMA_MODEL if settings.DEPLOYMENT_MODE == "local" else "gpt-5.2"))
+    
     return {
         "local_models": [
+            {"id": "deepseek-r1", "name": "DeepSeek R1 (Next-Gen 2026)", "provider": "Ollama", "recommended": True},
             {"id": "llama3.2", "name": "Llama 3.2", "provider": "Ollama"},
+            {"id": "llama3.1", "name": "Llama 3.1", "provider": "Ollama"},
             {"id": "mistral", "name": "Mistral 7B", "provider": "Ollama"},
             {"id": "phi3", "name": "Phi-3", "provider": "Ollama"}
         ],
         "cloud_models": [
+            {"id": "gpt-5.2", "name": "GPT-5.2 (Next-Gen 2026)", "provider": "OpenAI", "recommended": True},
+            {"id": "gpt-5", "name": "GPT-5", "provider": "OpenAI"},
             {"id": "gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
             {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
+            {"id": "deepseek-r1-api", "name": "DeepSeek R1 API (Next-Gen 2026)", "provider": "DeepSeek"},
             {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
-            {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"}
+            {"id": "claude-3-opus", "name": "Claude 3 Opus", "provider": "Anthropic"},
+            {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"},
+            {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "Google"}
         ],
-        "current_model": settings.OLLAMA_MODEL if settings.DEPLOYMENT_MODE == "local" else "gpt-4o-mini"
+        "current_model": current_model
     }
 

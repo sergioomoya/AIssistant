@@ -64,8 +64,8 @@ export default function Onboarding() {
       deepgram: '',
       huggingface: '',
     },
-    whisperModel: 'base',
-    llmModel: 'gpt-4o-mini',
+    whisperModel: 'large-v3-turbo',
+    llmModel: 'gpt-5.2', // Por defecto para modo híbrido, se actualizará si cambia a local
   })
   
   // Guardar configuración
@@ -203,20 +203,28 @@ export default function Onboarding() {
   
   const whisperModels = [
     { id: 'tiny', name: 'Tiny', size: '~75MB', speed: 'Muy rápido', accuracy: 'Básica' },
-    { id: 'base', name: 'Base', size: '~140MB', speed: 'Rápido', accuracy: 'Buena', recommended: true },
+    { id: 'base', name: 'Base', size: '~140MB', speed: 'Rápido', accuracy: 'Buena' },
     { id: 'small', name: 'Small', size: '~460MB', speed: 'Moderado', accuracy: 'Muy buena' },
     { id: 'medium', name: 'Medium', size: '~1.5GB', speed: 'Lento', accuracy: 'Excelente' },
     { id: 'large-v3', name: 'Large v3', size: '~3GB', speed: 'Muy lento', accuracy: 'Máxima' },
+    { id: 'large-v3-turbo', name: 'Large v3 Turbo (Next-Gen 2026)', size: '~3GB', speed: 'Optimizado', accuracy: 'Máxima', recommended: true },
   ]
   
   const llmModels = data.deploymentMode === 'local' ? [
-    { id: 'llama3.2', name: 'Llama 3.2', provider: 'Ollama', recommended: true },
+    { id: 'deepseek-r1', name: 'DeepSeek R1 (Next-Gen 2026)', provider: 'Ollama', recommended: true },
+    { id: 'llama3.2', name: 'Llama 3.2', provider: 'Ollama' },
+    { id: 'llama3.1', name: 'Llama 3.1', provider: 'Ollama' },
     { id: 'mistral', name: 'Mistral 7B', provider: 'Ollama' },
     { id: 'phi3', name: 'Phi-3', provider: 'Ollama' },
   ] : [
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', recommended: true },
+    { id: 'gpt-5.2', name: 'GPT-5.2 (Next-Gen 2026)', provider: 'OpenAI', recommended: true },
+    { id: 'gpt-5', name: 'GPT-5', provider: 'OpenAI' },
     { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+    { id: 'deepseek-r1-api', name: 'DeepSeek R1 API (Next-Gen 2026)', provider: 'DeepSeek' },
     { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+    { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
+    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'Google' },
     { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'Google' },
   ]
   
@@ -300,7 +308,11 @@ export default function Onboarding() {
                   {deploymentModes.map((mode) => (
                     <button
                       key={mode.id}
-                      onClick={() => setData({ ...data, deploymentMode: mode.id })}
+                      onClick={() => {
+                        // Actualizar modelo LLM según el modo seleccionado
+                        const newLlmModel = mode.id === 'local' ? 'deepseek-r1' : 'gpt-5.2'
+                        setData({ ...data, deploymentMode: mode.id, llmModel: newLlmModel })
+                      }}
                       className={cn(
                         "relative p-6 rounded-2xl border-2 text-left transition-all",
                         data.deploymentMode === mode.id
