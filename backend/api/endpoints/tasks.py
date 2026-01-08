@@ -4,14 +4,12 @@ AIssistant - Endpoints de Estado de Tareas
 WebSocket para recibir actualizaciones de estado de tareas asíncronas.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import structlog
 import asyncio
 
-from core.database import get_db
-from core.security import get_current_user_ws
 from core.config import settings
 import redis.asyncio as redis
 

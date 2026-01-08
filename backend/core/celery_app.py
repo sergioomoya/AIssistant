@@ -31,6 +31,7 @@ celery_app.conf.update(
     task_soft_time_limit=3300,  # 55 minutos soft limit
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=50,  # Reiniciar worker después de 50 tareas
+    broker_connection_retry_on_startup=True,  # Retry de conexión en startup
     task_routes={
         "features.transcription.tasks.*": {"queue": "transcription"},
         "features.summarization.tasks.*": {"queue": "summarization"},
