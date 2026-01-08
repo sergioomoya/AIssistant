@@ -1,0 +1,123 @@
+version: '3.9'
+
+services:
+  # ===========================================
+  # Backend API - FastAPI + Python
+  # ===========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aissistant-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://aissistant:aissistant_secret@postgres:5432/aissistant_db
+      - REDIS_URL=redis://redis:6379/0
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-hybrid}
+      - SECRET_KEY=${SECRET_KEY:-development-secret-key-change-in-production}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - whisper_models:/app/models
+      - audio_temp:/app/audio_temp
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aissistant-network
+    restart: unless-stopped
+
+  # ===========================================
+  # Frontend - React + TypeScript + Vite
+  # ===========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aissistant-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - aissistant-network
+    restart: unless-stopped
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: aissistant-postgres
+    environment:
+      - POSTGRES_USER=aissistant
+      - POSTGRES_PASSWORD=aissistant_secret
+      - POSTGRES_DB=aissistant_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - aissistant-network
+    restart: unless-stopped
+
+  # ===========================================
+  # Redis - Cache & Message Queue
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: aissistant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aissistant-network
+    restart: unless-stopped
+
+  # ===========================================
+  # Ollama - Local LLM Server (opcional)
+  # ===========================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aissistant-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - aissistant-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    profiles:
+      - local
+    restart: unless-stopped
+
+networks:
+  aissistant-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  whisper_models:
+  ollama_models:
+  audio_temp:
+

@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+.docker/
+
+# Audio files (privacy)
+*.wav
+*.mp3
+*.m4a
+*.ogg
+recordings/
+audio_temp/
+
+# Database
+*.db
+*.sqlite3
+data/postgres/
+
+# Secrets
+*.pem
+*.key
+secrets/
+
+# Transcription outputs (local)
+transcriptions_local/
+
+# ML Models (downloaded locally)
+models/
+*.bin
+*.pt
+*.onnx
+

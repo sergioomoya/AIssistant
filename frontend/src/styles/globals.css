@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================
+   AIssistant - Estilos Globales
+   ========================================= */
+
+@layer base {
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: theme('colors.surface.900');
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.surface.600');
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.surface.500');
+  }
+
+  /* Selección de texto */
+  ::selection {
+    background: theme('colors.primary.500/30');
+    color: white;
+  }
+
+  /* Focus visible */
+  :focus-visible {
+    outline: 2px solid theme('colors.primary.500');
+    outline-offset: 2px;
+  }
+
+  /* Links */
+  a {
+    @apply transition-colors duration-200;
+  }
+
+  /* Body */
+  body {
+    @apply bg-surface-950 text-surface-100;
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+@layer components {
+  /* Botón primario */
+  .btn-primary {
+    @apply px-5 py-2.5 bg-primary-600 hover:bg-primary-500 
+           text-white font-medium rounded-lg
+           transition-all duration-200 ease-out
+           shadow-lg shadow-primary-600/25
+           hover:shadow-xl hover:shadow-primary-500/30
+           active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:hover:bg-primary-600 disabled:shadow-none;
+  }
+
+  /* Botón secundario */
+  .btn-secondary {
+    @apply px-5 py-2.5 bg-surface-700 hover:bg-surface-600 
+           text-white font-medium rounded-lg
+           border border-surface-600 hover:border-surface-500
+           transition-all duration-200 ease-out
+           active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón fantasma */
+  .btn-ghost {
+    @apply px-4 py-2 text-surface-300 hover:text-white
+           hover:bg-surface-800 rounded-lg
+           transition-all duration-200;
+  }
+
+  /* Botón de acento */
+  .btn-accent {
+    @apply px-5 py-2.5 bg-accent-500 hover:bg-accent-400 
+           text-white font-medium rounded-lg
+           transition-all duration-200 ease-out
+           shadow-lg shadow-accent-500/25
+           hover:shadow-xl hover:shadow-accent-400/30
+           active:scale-[0.98];
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-4 py-2.5 bg-surface-800 
+           border border-surface-700 rounded-lg
+           text-white placeholder-surface-500
+           focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+           transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-surface-900 border border-surface-800 
+           rounded-xl p-6
+           transition-all duration-200;
+  }
+
+  .card-hover {
+    @apply card hover:border-surface-700 
+           hover:shadow-lg hover:shadow-black/20;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 
+           rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-500/20 text-primary-400;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-500/20 text-emerald-400;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-500/20 text-amber-400;
+  }
+
+  .badge-error {
+    @apply badge bg-red-500/20 text-red-400;
+  }
+
+  /* Indicador de grabación */
+  .recording-indicator {
+    @apply relative w-3 h-3;
+  }
+
+  .recording-indicator::before {
+    content: '';
+    @apply absolute inset-0 bg-red-500 rounded-full animate-ping;
+  }
+
+  .recording-indicator::after {
+    content: '';
+    @apply absolute inset-0 bg-red-500 rounded-full;
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-surface-900/80 backdrop-blur-xl 
+           border border-surface-800/50;
+  }
+
+  /* Gradiente de texto */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-400 to-accent-400 
+           bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  /* Patrón de fondo */
+  .bg-grid {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+  }
+
+  /* Efecto de brillo */
+  .shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shine::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255,255,255,0.1) 50%,
+      transparent 100%
+    );
+    transform: rotate(45deg);
+    animation: shine 3s ease-in-out infinite;
+  }
+
+  @keyframes shine {
+    0% { transform: translateX(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) rotate(45deg); }
+  }
+
+  /* Hide scrollbar */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
