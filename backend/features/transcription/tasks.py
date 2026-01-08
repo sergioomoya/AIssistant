@@ -7,6 +7,7 @@ Tareas Celery para transcripción y diarización asíncrona.
 from celery import Task
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import Optional, Dict
 import structlog
 import os
 
