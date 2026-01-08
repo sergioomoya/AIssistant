@@ -283,3 +283,6 @@ class WhisperEngine:
             "confidence": result.get("language_probability", 1.0)
         }
 
+
+# Alias para compatibilidad con tareas
+TranscriptionEngine = WhisperEngine

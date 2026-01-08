@@ -22,6 +22,7 @@ import {
   Send,
   Sparkles,
 } from 'lucide-react'
+import TaskProgress from '@/components/tasks/TaskProgress'
 
 /**
  * Detalle de una reunión
@@ -159,8 +160,17 @@ export default function MeetingDetail() {
     { id: 'actions', label: 'Acciones', icon: CheckCircle2 },
   ]
   
+  // Mostrar progreso si la reunión está procesándose
+  const isProcessing = meeting.status === 'processing' || meeting.status === 'uploading'
+  const taskId = meeting.task_id || meeting.metadata?.task_id
+  
   return (
     <div className="space-y-6">
+      {/* Progreso de tarea */}
+      {isProcessing && taskId && (
+        <TaskProgress taskId={taskId} />
+      )}
+      
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">

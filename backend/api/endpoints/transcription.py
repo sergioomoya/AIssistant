@@ -148,7 +148,7 @@ async def upload_audio_for_transcription(
             detail=f"Archivo demasiado grande. Máximo: {settings.MAX_UPLOAD_SIZE_MB}MB"
         )
     
-    # Guardar archivo temporalmente y procesar
+    # Guardar archivo temporalmente
     import aiofiles
     import os
     
@@ -156,19 +156,46 @@ async def upload_audio_for_transcription(
     async with aiofiles.open(temp_path, 'wb') as f:
         await f.write(content)
     
+    # Encriptar archivo si la reunión es confidencial
+    if meeting.is_confidential:
+        from features.privacy.encryption import get_encryption_service
+        encryption_service = get_encryption_service()
+        
+        # Encriptar archivo
+        encrypted_path = encryption_service.encrypt_file(temp_path)
+        temp_path = encrypted_path
+        
+        logger.info("Archivo de audio encriptado", meeting_id=meeting_id, path=encrypted_path)
+    
+    # Disparar tarea asíncrona para procesar reunión completa
+    from features.meetings.tasks import process_meeting_task
+    from api.endpoints.tasks import publish_task_update
+    
+    task = process_meeting_task.delay(meeting_id)
+    
+    # Guardar ruta del archivo y task_id en la reunión
+    meeting.audio_file_path = temp_path
+    meeting.task_id = task.id
+    meeting.status = "uploading"
+    await db.commit()
+    
+    # Publicar estado inicial
+    await publish_task_update(task.id, "uploading", 0.05, "Archivo recibido, iniciando procesamiento...")
+    
     logger.info(
         "Audio subido para transcripción",
         meeting_id=meeting_id,
+        task_id=task.id,
         filename=audio_file.filename,
         size_mb=len(content) / (1024 * 1024)
     )
     
-    # TODO: Disparar tarea async para procesar transcripción
-    
     return {
         "message": "Audio recibido. Procesando transcripción...",
         "meeting_id": meeting_id,
-        "filename": audio_file.filename
+        "filename": audio_file.filename,
+        "task_id": task.id,
+        "status": "processing"
     }
 
 

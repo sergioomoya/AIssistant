@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://ollama:11434"
     OLLAMA_MODEL: str = "llama3.2"
     
+    # ----- HuggingFace (Diarización) -----
+    HF_TOKEN: str = ""
+    
     # ----- Configuración de Audio -----
     AUDIO_SAMPLE_RATE: int = 16000
     AUDIO_CHANNELS: int = 1

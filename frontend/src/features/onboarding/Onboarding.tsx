@@ -31,6 +31,7 @@ interface OnboardingData {
     anthropic: string
     google: string
     deepgram: string
+    huggingface: string
   }
   whisperModel: string
   llmModel: string
@@ -61,6 +62,7 @@ export default function Onboarding() {
       anthropic: '',
       google: '',
       deepgram: '',
+      huggingface: '',
     },
     whisperModel: 'base',
     llmModel: 'gpt-4o-mini',
@@ -82,6 +84,7 @@ export default function Onboarding() {
           anthropic_api_key: data.apiKeys.anthropic || undefined,
           google_ai_api_key: data.apiKeys.google || undefined,
           deepgram_api_key: data.apiKeys.deepgram || undefined,
+          huggingface_token: data.apiKeys.huggingface || undefined,
         })
       }
       
@@ -188,6 +191,13 @@ export default function Onboarding() {
       name: 'Deepgram', 
       description: 'Transcripción rápida en tiempo real',
       url: 'https://console.deepgram.com/',
+    },
+    { 
+      id: 'huggingface', 
+      name: 'HuggingFace', 
+      description: 'Token para diarización de hablantes (opcional)',
+      url: 'https://huggingface.co/settings/tokens',
+      recommended: false,
     },
   ]
   

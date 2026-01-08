@@ -6,7 +6,7 @@ Agrupa todos los endpoints de la aplicación.
 
 from fastapi import APIRouter
 
-from api.endpoints import auth, oauth, meetings, transcription, summarization, settings, export
+from api.endpoints import auth, oauth, meetings, transcription, summarization, settings, export, tasks
 
 api_router = APIRouter()
 
@@ -57,5 +57,11 @@ api_router.include_router(
     export.router,
     prefix="/export",
     tags=["Exportación"]
+)
+
+# Estado de Tareas (WebSocket)
+api_router.include_router(
+    tasks.router,
+    tags=["Tareas"]
 )
 

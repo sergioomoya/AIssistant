@@ -38,6 +38,7 @@ export default function Settings() {
     anthropic: '',
     google: '',
     deepgram: '',
+    huggingface: '',
   })
   
   // Fetch settings
@@ -89,11 +90,12 @@ export default function Settings() {
         anthropic_api_key: keys.anthropic || undefined,
         google_ai_api_key: keys.google || undefined,
         deepgram_api_key: keys.deepgram || undefined,
+        huggingface_token: keys.huggingface || undefined,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
-      setApiKeys({ openai: '', anthropic: '', google: '', deepgram: '' })
+      setApiKeys({ openai: '', anthropic: '', google: '', deepgram: '', huggingface: '' })
       toast.success('API keys actualizadas')
     },
     onError: () => {
@@ -154,6 +156,7 @@ export default function Settings() {
     { id: 'anthropic', name: 'Anthropic', hasKey: settings?.has_anthropic_key },
     { id: 'google', name: 'Google AI', hasKey: settings?.has_google_key },
     { id: 'deepgram', name: 'Deepgram', hasKey: settings?.has_deepgram_key },
+    { id: 'huggingface', name: 'HuggingFace', hasKey: settings?.has_huggingface_token },
   ]
   
   if (isLoading) {

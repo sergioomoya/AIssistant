@@ -34,6 +34,7 @@ class APIKeysUpdate(BaseModel):
     anthropic_api_key: Optional[str] = None
     google_ai_api_key: Optional[str] = None
     deepgram_api_key: Optional[str] = None
+    huggingface_token: Optional[str] = None
 
 
 class PrivacySettingsUpdate(BaseModel):
@@ -62,6 +63,7 @@ class UserSettingsResponse(BaseModel):
     has_anthropic_key: bool
     has_google_key: bool
     has_deepgram_key: bool
+    has_huggingface_token: bool
     auto_delete_audio_hours: int
     pii_redaction_enabled: bool
     preferred_language: str
@@ -124,6 +126,7 @@ async def get_user_settings(
         "has_anthropic_key": bool(api_keys.get("anthropic")),
         "has_google_key": bool(api_keys.get("google")),
         "has_deepgram_key": bool(api_keys.get("deepgram")),
+        "has_huggingface_token": bool(api_keys.get("huggingface")),
         "auto_delete_audio_hours": user.auto_delete_audio_hours,
         "pii_redaction_enabled": user.pii_redaction_enabled,
         "preferred_language": user.preferred_language,
@@ -195,6 +198,8 @@ async def update_api_keys(
         api_keys["google"] = data.google_ai_api_key
     if data.deepgram_api_key:
         api_keys["deepgram"] = data.deepgram_api_key
+    if data.huggingface_token:
+        api_keys["huggingface"] = data.huggingface_token
     
     user.api_keys = api_keys
     await db.commit()
@@ -211,7 +216,7 @@ async def delete_api_key(
     db: AsyncSession = Depends(get_db)
 ):
     """Eliminar API key de un proveedor."""
-    if provider not in ["openai", "anthropic", "google", "deepgram"]:
+    if provider not in ["openai", "anthropic", "google", "deepgram", "huggingface"]:
         raise HTTPException(status_code=400, detail="Proveedor inválido")
     
     result = await db.execute(
