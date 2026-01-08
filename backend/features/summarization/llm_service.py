@@ -2,6 +2,7 @@
 AIssistant - Servicio de LLM para Resúmenes e Inteligencia
 ==========================================================
 Integración con OpenAI, Anthropic, Google y Ollama.
+Lee configuración del usuario desde la base de datos.
 """
 
 from typing import Optional, Dict, List, Any
@@ -21,6 +22,10 @@ class LLMService:
     - Anthropic (Claude)
     - Google (Gemini)
     - Ollama (modelos locales)
+    
+    La configuración se lee de:
+    1. Configuración del usuario (BD) - Prioridad
+    2. Variables de entorno (.env) - Fallback
     """
     
     # Prompts del sistema
@@ -44,23 +49,56 @@ Directrices:
 - Cita partes relevantes cuando sea útil
 - Responde en el mismo idioma de la pregunta"""
 
-    def __init__(self):
-        self.deployment_mode = settings.DEPLOYMENT_MODE
+    def __init__(
+        self,
+        user_config: Optional[Dict] = None,
+        deployment_mode: Optional[str] = None
+    ):
+        """
+        Inicializar servicio LLM.
+        
+        Args:
+            user_config: Configuración del usuario desde BD (api_keys, preferences)
+            deployment_mode: Modo de despliegue del usuario (local/hybrid/cloud)
+        """
+        self.user_config = user_config or {}
+        self.deployment_mode = deployment_mode or settings.DEPLOYMENT_MODE
         self._clients = {}
         self._initialize_clients()
     
+    def _get_api_key(self, provider: str) -> Optional[str]:
+        """Obtener API key del usuario o del .env."""
+        # Primero intentar desde la config del usuario
+        user_keys = self.user_config.get('api_keys', {})
+        if user_keys.get(provider):
+            return user_keys[provider]
+        
+        # Fallback a variables de entorno
+        env_keys = {
+            'openai': settings.OPENAI_API_KEY,
+            'anthropic': settings.ANTHROPIC_API_KEY,
+            'google': settings.GOOGLE_AI_API_KEY,
+            'deepgram': settings.DEEPGRAM_API_KEY,
+        }
+        return env_keys.get(provider)
+    
+    def _get_llm_model(self) -> str:
+        """Obtener modelo LLM preferido del usuario."""
+        preferences = self.user_config.get('preferences', {})
+        return preferences.get('llm_model', 'gpt-4o-mini')
+    
     def _initialize_clients(self):
-        """Inicializar clientes según el modo de despliegue."""
+        """Inicializar clientes según el modo de despliegue y keys disponibles."""
         if self.deployment_mode == "local":
             # Solo Ollama para modo local
             self._init_ollama()
         else:
             # Inicializar clientes disponibles según API keys
-            if settings.OPENAI_API_KEY:
+            if self._get_api_key('openai'):
                 self._init_openai()
-            if settings.ANTHROPIC_API_KEY:
+            if self._get_api_key('anthropic'):
                 self._init_anthropic()
-            if settings.GOOGLE_AI_API_KEY:
+            if self._get_api_key('google'):
                 self._init_google()
             # Ollama como fallback
             self._init_ollama()
@@ -69,7 +107,8 @@ Directrices:
         """Inicializar cliente de OpenAI."""
         try:
             from openai import AsyncOpenAI
-            self._clients["openai"] = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            api_key = self._get_api_key('openai')
+            self._clients["openai"] = AsyncOpenAI(api_key=api_key)
             logger.info("Cliente OpenAI inicializado")
         except Exception as e:
             logger.warning("No se pudo inicializar OpenAI", error=str(e))
@@ -78,9 +117,8 @@ Directrices:
         """Inicializar cliente de Anthropic."""
         try:
             import anthropic
-            self._clients["anthropic"] = anthropic.AsyncAnthropic(
-                api_key=settings.ANTHROPIC_API_KEY
-            )
+            api_key = self._get_api_key('anthropic')
+            self._clients["anthropic"] = anthropic.AsyncAnthropic(api_key=api_key)
             logger.info("Cliente Anthropic inicializado")
         except Exception as e:
             logger.warning("No se pudo inicializar Anthropic", error=str(e))
@@ -89,7 +127,8 @@ Directrices:
         """Inicializar cliente de Google AI."""
         try:
             import google.generativeai as genai
-            genai.configure(api_key=settings.GOOGLE_AI_API_KEY)
+            api_key = self._get_api_key('google')
+            genai.configure(api_key=api_key)
             self._clients["google"] = genai
             logger.info("Cliente Google AI inicializado")
         except Exception as e:
@@ -105,17 +144,33 @@ Directrices:
             logger.warning("No se pudo inicializar Ollama", error=str(e))
     
     def _get_preferred_client(self) -> tuple:
-        """Obtener cliente preferido según configuración."""
+        """Obtener cliente preferido según configuración del usuario."""
+        llm_model = self._get_llm_model()
+        
+        # Determinar proveedor según el modelo seleccionado
+        if 'gpt' in llm_model.lower():
+            if "openai" in self._clients:
+                return ("openai", self._clients["openai"])
+        elif 'claude' in llm_model.lower():
+            if "anthropic" in self._clients:
+                return ("anthropic", self._clients["anthropic"])
+        elif 'gemini' in llm_model.lower():
+            if "google" in self._clients:
+                return ("google", self._clients["google"])
+        elif llm_model.lower() in ['llama3.2', 'mistral', 'phi3']:
+            if "ollama" in self._clients:
+                return ("ollama", self._clients["ollama"])
+        
+        # Fallback: usar el primero disponible
         if self.deployment_mode == "local":
             if "ollama" in self._clients:
                 return ("ollama", self._clients["ollama"])
         else:
-            # Preferencia: OpenAI > Anthropic > Google > Ollama
             for provider in ["openai", "anthropic", "google", "ollama"]:
                 if provider in self._clients:
                     return (provider, self._clients[provider])
         
-        raise RuntimeError("No hay ningún cliente LLM disponible")
+        raise RuntimeError("No hay ningún cliente LLM disponible. Configura al menos una API key o usa modo local con Ollama.")
     
     async def generate_meeting_summary(
         self,
@@ -351,8 +406,12 @@ Responde de forma clara y concisa. Si citas partes de la transcripción, indíca
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_prompt})
         
+        model = self._get_llm_model()
+        if 'gpt' not in model.lower():
+            model = "gpt-4o-mini"  # Default OpenAI model
+        
         kwargs = {
-            "model": "gpt-4o-mini",
+            "model": model,
             "messages": messages,
             "temperature": settings.SUMMARY_TEMPERATURE,
             "max_tokens": settings.SUMMARY_MAX_TOKENS
@@ -371,8 +430,12 @@ Responde de forma clara y concisa. Si citas partes de la transcripción, indíca
         user_prompt: str
     ) -> str:
         """Llamar a Anthropic API."""
+        model = self._get_llm_model()
+        if 'claude' not in model.lower():
+            model = "claude-3-5-sonnet-20241022"
+        
         message = await client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=model,
             max_tokens=settings.SUMMARY_MAX_TOKENS,
             system=system_prompt if system_prompt else "Eres un asistente útil.",
             messages=[{"role": "user", "content": user_prompt}]
@@ -381,7 +444,11 @@ Responde de forma clara y concisa. Si citas partes de la transcripción, indíca
     
     async def _call_google(self, client, prompt: str) -> str:
         """Llamar a Google AI API."""
-        model = client.GenerativeModel("gemini-1.5-flash")
+        model_name = self._get_llm_model()
+        if 'gemini' not in model_name.lower():
+            model_name = "gemini-1.5-flash"
+        
+        model = client.GenerativeModel(model_name)
         response = await model.generate_content_async(prompt)
         return response.text
     
@@ -394,6 +461,11 @@ Responde de forma clara y concisa. Si citas partes de la transcripción, indíca
         """Llamar a Ollama (local)."""
         import asyncio
         
+        model = self._get_llm_model()
+        # Asegurar que es un modelo de Ollama válido
+        if model.lower() not in ['llama3.2', 'mistral', 'phi3']:
+            model = settings.OLLAMA_MODEL
+        
         # Ollama client es sincrónico, ejecutar en thread pool
         loop = asyncio.get_event_loop()
         
@@ -404,10 +476,39 @@ Responde de forma clara y concisa. Si citas partes de la transcripción, indíca
             messages.append({"role": "user", "content": user_prompt})
             
             response = client.chat(
-                model=settings.OLLAMA_MODEL,
+                model=model,
                 messages=messages
             )
             return response["message"]["content"]
         
         return await loop.run_in_executor(None, _sync_call)
 
+
+async def get_llm_service_for_user(user_id: int, db) -> LLMService:
+    """
+    Factory function para crear LLMService con la configuración del usuario.
+    
+    Args:
+        user_id: ID del usuario
+        db: Sesión de base de datos
+        
+    Returns:
+        LLMService configurado para el usuario
+    """
+    from sqlalchemy import select
+    from models.user import User
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if user:
+        return LLMService(
+            user_config={
+                'api_keys': user.api_keys or {},
+                'preferences': user.preferences or {},
+            },
+            deployment_mode=user.deployment_mode
+        )
+    
+    # Fallback a configuración por defecto
+    return LLMService()

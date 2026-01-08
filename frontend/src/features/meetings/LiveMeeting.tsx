@@ -15,7 +15,7 @@ import {
   Square,
   Settings,
   MessageSquare,
-  Waveform,
+  Activity,
   Users,
 } from 'lucide-react'
 
@@ -341,7 +341,7 @@ export default function LiveMeeting() {
           {/* Visualizador de audio */}
           <div className="card">
             <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-              <Waveform className="w-5 h-5 text-primary-400" />
+              <Activity className="w-5 h-5 text-primary-400" />
               Nivel de audio
             </h3>
             

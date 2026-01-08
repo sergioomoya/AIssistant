@@ -48,6 +48,11 @@ class PreferencesUpdate(BaseModel):
     language: Optional[str] = None
     preferred_transcription_language: Optional[str] = None
     notifications_enabled: Optional[bool] = None
+    # Preferencias de modelos
+    whisper_model: Optional[str] = None
+    llm_model: Optional[str] = None
+    # Estado de onboarding
+    onboarding_completed: Optional[bool] = None
 
 
 class UserSettingsResponse(BaseModel):
@@ -61,6 +66,7 @@ class UserSettingsResponse(BaseModel):
     pii_redaction_enabled: bool
     preferred_language: str
     preferences: Dict
+    onboarding_completed: bool
 
 
 class TranscriptionModelsResponse(BaseModel):
@@ -121,7 +127,8 @@ async def get_user_settings(
         "auto_delete_audio_hours": user.auto_delete_audio_hours,
         "pii_redaction_enabled": user.pii_redaction_enabled,
         "preferred_language": user.preferred_language,
-        "preferences": user.preferences or {}
+        "preferences": user.preferences or {},
+        "onboarding_completed": user.onboarding_completed
     }
 
 
@@ -270,8 +277,18 @@ async def update_preferences(
     if data.notifications_enabled is not None:
         preferences["notifications_enabled"] = data.notifications_enabled
     
+    # Preferencias de modelos de IA
+    if data.whisper_model:
+        preferences["whisper_model"] = data.whisper_model
+    if data.llm_model:
+        preferences["llm_model"] = data.llm_model
+    
     if data.preferred_transcription_language:
         user.preferred_language = data.preferred_transcription_language
+    
+    # Estado de onboarding
+    if data.onboarding_completed is not None:
+        user.onboarding_completed = data.onboarding_completed
     
     user.preferences = preferences
     await db.commit()

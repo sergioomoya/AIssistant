@@ -4,13 +4,19 @@ AIssistant - Configuración Central
 Gestión de variables de entorno y configuración de la aplicación.
 """
 
-from typing import List, Literal
-from pydantic_settings import BaseSettings
+from typing import Literal
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
     """Configuración de la aplicación cargada desde variables de entorno."""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore"
+    )
     
     # ----- Aplicación -----
     APP_NAME: str = "AIssistant"
@@ -31,11 +37,13 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
     
     # ----- CORS -----
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000"
-    ]
+    # Definido como string separado por comas para facilitar configuración desde .env
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000"
+    
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Obtener lista de orígenes CORS."""
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
     # ----- Whisper (Transcripción) -----
     WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large", "large-v3"] = "base"
@@ -47,6 +55,10 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     GOOGLE_AI_API_KEY: str = ""
     DEEPGRAM_API_KEY: str = ""
+    
+    # ----- OAuth Providers -----
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
     
     # ----- Ollama (Modo Local) -----
     OLLAMA_BASE_URL: str = "http://ollama:11434"
@@ -78,10 +90,6 @@ class Settings(BaseSettings):
     # ----- Privacidad -----
     AUTO_DELETE_AUDIO_HOURS: int = 24  # Borrar audio tras X horas (0 = nunca)
     PII_REDACTION_ENABLED: bool = True
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 
 @lru_cache()

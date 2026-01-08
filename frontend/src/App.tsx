@@ -13,6 +13,8 @@ import LiveMeeting from '@/features/meetings/LiveMeeting'
 import Settings from '@/features/settings/Settings'
 import Login from '@/features/auth/Login'
 import Register from '@/features/auth/Register'
+import GoogleCallback from '@/features/auth/GoogleCallback'
+import Onboarding from '@/features/onboarding/Onboarding'
 
 /**
  * Componente de ruta protegida
@@ -22,6 +24,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+  
+  return <>{children}</>
+}
+
+/**
+ * Ruta que requiere onboarding completado
+ */
+function RequireOnboarding({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((state) => state.user)
+  const needsOnboarding = useAuthStore((state) => state.needsOnboarding)
+  
+  // Si necesita onboarding, redirigir
+  if (needsOnboarding) {
+    return <Navigate to="/setup" replace />
   }
   
   return <>{children}</>
@@ -39,16 +56,32 @@ export default function App() {
         <Route path="/register" element={<Register />} />
       </Route>
       
-      {/* Rutas protegidas */}
+      {/* OAuth Callbacks */}
+      <Route path="/auth/google/callback" element={<GoogleCallback />} />
+      
+      {/* Onboarding - Configuración inicial */}
+      <Route
+        path="/setup"
+        element={
+          <ProtectedRoute>
+            <Onboarding />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Rutas protegidas con onboarding completado */}
       <Route
         element={
           <ProtectedRoute>
-            <MainLayout />
+            <RequireOnboarding>
+              <MainLayout />
+            </RequireOnboarding>
           </ProtectedRoute>
         }
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/meetings" element={<MeetingsList />} />
+        <Route path="/meetings/new" element={<LiveMeeting />} />
         <Route path="/meetings/:id" element={<MeetingDetail />} />
         <Route path="/meetings/:id/live" element={<LiveMeeting />} />
         <Route path="/settings" element={<Settings />} />
@@ -59,4 +92,3 @@ export default function App() {
     </Routes>
   )
 }
-

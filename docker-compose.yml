@@ -17,10 +17,15 @@ services:
       - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
       - OLLAMA_BASE_URL=http://ollama:11434
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-hybrid}
       - SECRET_KEY=${SECRET_KEY:-development-secret-key-change-in-production}
       - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      # OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - ./backend:/app
       - whisper_models:/app/models

@@ -6,7 +6,7 @@ Agrupa todos los endpoints de la aplicación.
 
 from fastapi import APIRouter
 
-from api.endpoints import auth, meetings, transcription, summarization, settings, export
+from api.endpoints import auth, oauth, meetings, transcription, summarization, settings, export
 
 api_router = APIRouter()
 
@@ -15,6 +15,13 @@ api_router.include_router(
     auth.router,
     prefix="/auth",
     tags=["Autenticación"]
+)
+
+# OAuth (Google, Microsoft, GitHub)
+api_router.include_router(
+    oauth.router,
+    prefix="/oauth",
+    tags=["OAuth"]
 )
 
 # Reuniones

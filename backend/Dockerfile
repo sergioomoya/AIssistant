@@ -11,11 +11,19 @@ ENV PYTHONUNBUFFERED=1
 # Directorio de trabajo
 WORKDIR /app
 
-# Instalar dependencias del sistema para audio
+# Instalar dependencias del sistema para audio y compilación
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
     portaudio19-dev \
+    pkg-config \
+    libavformat-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libswresample-dev \
+    libavfilter-dev \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*

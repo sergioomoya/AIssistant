@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     deployment_mode: str
     is_active: bool
     is_verified: bool
+    onboarding_completed: bool
     
     class Config:
         from_attributes = True
