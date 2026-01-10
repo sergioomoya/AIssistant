@@ -4,13 +4,17 @@ AIssistant - Endpoints de Estado de Tareas
 WebSocket para recibir actualizaciones de estado de tareas asíncronas.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import json
 import structlog
 import asyncio
 
 from core.config import settings
+from core.database import async_session_maker
+from core.security import get_current_user_ws
+from models.meeting import Meeting
 import redis.asyncio as redis
 
 router = APIRouter()
@@ -32,9 +36,13 @@ async def get_redis_client() -> redis.Redis:
 async def websocket_task_status(
     websocket: WebSocket,
     task_id: str,
+    token: str = Query(..., description="Token JWT para autenticación"),
 ):
     """
     WebSocket para recibir actualizaciones de estado de una tarea.
+    
+    Requiere autenticación mediante token JWT en query parameter.
+    Solo el usuario propietario de la reunión puede suscribirse a sus tareas.
     
     El cliente se conecta y recibe actualizaciones en tiempo real del progreso
     de procesamiento de una reunión (transcripción, diarización, resumen).
@@ -46,10 +54,47 @@ async def websocket_task_status(
         "message": "Descripción del estado actual",
         "error": "Mensaje de error si status=failed"
     }
+    
+    Args:
+        task_id: ID de la tarea Celery
+        token: Token JWT en query parameter (ej: ?token=eyJ...)
     """
+    # Validar autenticación
+    try:
+        current_user = get_current_user_ws(token)
+        user_id = int(current_user["user_id"])
+    except ValueError as e:
+        logger.warning("Autenticación WebSocket fallida", task_id=task_id, error=str(e))
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    
+    # Verificar que el usuario tenga acceso a esta tarea
+    # Buscar la reunión que tiene este task_id y verificar que pertenezca al usuario
+    async with async_session_maker() as db:
+        result = await db.execute(
+            select(Meeting).where(Meeting.task_id == task_id)
+        )
+        meeting = result.scalar_one_or_none()
+        
+        if not meeting:
+            logger.warning("Tarea no encontrada", task_id=task_id, user_id=user_id)
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        
+        if meeting.user_id != user_id:
+            logger.warning(
+                "Usuario intentó acceder a tarea de otro usuario",
+                task_id=task_id,
+                user_id=user_id,
+                meeting_user_id=meeting.user_id
+            )
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    
+    # Autenticación y autorización exitosas, aceptar conexión
     await websocket.accept()
     
-    logger.info("WebSocket de tarea conectado", task_id=task_id)
+    logger.info("WebSocket de tarea conectado", task_id=task_id, user_id=user_id)
     
     redis_client = await get_redis_client()
     pubsub = redis_client.pubsub()

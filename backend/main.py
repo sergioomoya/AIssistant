@@ -27,7 +27,7 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación."""
-    logger.info("Iniciando AIssistant Backend", version="1.0.0")
+    logger.info("Iniciando AIssistant Backend", version="1.0.1")
     
     # Inicializar base de datos
     await init_db()
@@ -70,7 +70,7 @@ app = FastAPI(
     - **Híbrido**: Captura local + APIs en la nube
     - **Nube**: Solución SaaS gestionada
     """,
-    version="1.0.0",
+    version="1.0.1",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
@@ -95,7 +95,7 @@ async def root():
     return {
         "status": "online",
         "service": "AIssistant API",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "deployment_mode": settings.DEPLOYMENT_MODE
     }
 

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     
     # ----- Aplicación -----
     APP_NAME: str = "AIssistant"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.0.1"
     DEBUG: bool = False
     
     # ----- Modo de Despliegue -----

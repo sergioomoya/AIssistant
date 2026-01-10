@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 import structlog
 
 from core.config import settings
+from features.privacy.api_keys import get_decrypted_api_key
 
 logger = structlog.get_logger()
 
@@ -32,15 +33,15 @@ class DiarizationService:
         self.user_config = user_config or {}
     
     def _get_hf_token(self) -> Optional[str]:
-        """Obtener token de HuggingFace del usuario o .env."""
-        # Primero intentar desde la config del usuario
-        user_keys = self.user_config.get('api_keys', {})
-        if user_keys.get('huggingface'):
-            return user_keys['huggingface']
+        """Obtener token de HuggingFace del usuario (desencriptado) o .env."""
+        user_api_keys = self.user_config.get('api_keys', {})
+        env_fallback = settings.HF_TOKEN or os.getenv("HF_TOKEN")
         
-        # Fallback a variables de entorno
-        from core.config import settings
-        return settings.HF_TOKEN or os.getenv("HF_TOKEN")
+        return get_decrypted_api_key(
+            user_api_keys,
+            'huggingface',
+            env_fallback
+        )
     
     async def _initialize(self):
         """Inicializar pipeline de forma asíncrona."""

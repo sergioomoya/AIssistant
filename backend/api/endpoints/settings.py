@@ -9,13 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from cryptography.fernet import Fernet
 import structlog
 
 from core.database import get_db
 from core.security import get_current_user
 from core.config import settings
 from models.user import User
+from features.privacy.encryption import get_encryption_service
+from features.privacy.api_keys import decrypt_api_key
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -88,11 +89,29 @@ class LLMModelsResponse(BaseModel):
 # ========== Helpers ==========
 
 def encrypt_api_key(key: str) -> str:
-    """Encriptar API key para almacenamiento."""
-    # En producción, usar una clave derivada de SECRET_KEY
-    fernet_key = Fernet.generate_key()  # TODO: Usar clave fija derivada
-    f = Fernet(fernet_key)
-    return f.encrypt(key.encode()).decode()
+    """
+    Encriptar API key para almacenamiento seguro.
+    
+    Usa EncryptionService que deriva la clave de SECRET_KEY de forma determinista.
+    Esto permite desencriptar las keys después de reiniciar el servidor.
+    
+    Args:
+        key: API key en texto plano
+        
+    Returns:
+        API key encriptada como string base64
+    """
+    if not key:
+        return ""
+    
+    encryption_service = get_encryption_service()
+    encrypted_bytes = encryption_service.encrypt_bytes(key.encode('utf-8'))
+    # Convertir a string base64 para almacenar en JSON
+    import base64
+    return base64.urlsafe_b64encode(encrypted_bytes).decode('utf-8')
+
+
+# decrypt_api_key ahora está en features.privacy.api_keys
 
 
 def mask_api_key(key: str) -> str:
@@ -190,21 +209,22 @@ async def update_api_keys(
     
     api_keys = user.api_keys or {}
     
+    # Encriptar todas las API keys antes de guardar
     if data.openai_api_key:
-        api_keys["openai"] = data.openai_api_key  # TODO: Encriptar
+        api_keys["openai"] = encrypt_api_key(data.openai_api_key)
     if data.anthropic_api_key:
-        api_keys["anthropic"] = data.anthropic_api_key
+        api_keys["anthropic"] = encrypt_api_key(data.anthropic_api_key)
     if data.google_ai_api_key:
-        api_keys["google"] = data.google_ai_api_key
+        api_keys["google"] = encrypt_api_key(data.google_ai_api_key)
     if data.deepgram_api_key:
-        api_keys["deepgram"] = data.deepgram_api_key
+        api_keys["deepgram"] = encrypt_api_key(data.deepgram_api_key)
     if data.huggingface_token:
-        api_keys["huggingface"] = data.huggingface_token
+        api_keys["huggingface"] = encrypt_api_key(data.huggingface_token)
     
     user.api_keys = api_keys
     await db.commit()
     
-    logger.info("API keys actualizadas", user_id=user.id)
+    logger.info("API keys actualizadas y encriptadas", user_id=user.id)
     
     return {"message": "API keys actualizadas correctamente"}
 

@@ -96,3 +96,30 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     
     return {"user_id": user_id, "email": payload.get("email")}
 
+
+def get_current_user_ws(token: str) -> dict:
+    """
+    Obtener usuario actual desde token JWT para WebSocket.
+    
+    Similar a get_current_user pero síncrono y sin Depends.
+    Usado para validar tokens en conexiones WebSocket.
+    
+    Args:
+        token: Token JWT como string
+        
+    Returns:
+        dict con información del usuario
+        
+    Raises:
+        ValueError si el token es inválido
+    """
+    payload = decode_access_token(token)
+    if payload is None:
+        raise ValueError("Token inválido o expirado")
+    
+    user_id: str = payload.get("sub")
+    if user_id is None:
+        raise ValueError("Token no contiene user_id")
+    
+    return {"user_id": user_id, "email": payload.get("email")}
+

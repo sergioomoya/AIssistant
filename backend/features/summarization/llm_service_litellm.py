@@ -10,6 +10,7 @@ import structlog
 import os
 
 from core.config import settings
+from features.privacy.api_keys import get_decrypted_api_key
 
 logger = structlog.get_logger()
 
@@ -42,18 +43,22 @@ class LiteLLMService:
         self._initialize_litellm()
     
     def _get_api_key(self, provider: str) -> Optional[str]:
-        """Obtener API key del usuario o del .env."""
-        user_keys = self.user_config.get('api_keys', {})
-        if user_keys.get(provider):
-            return user_keys[provider]
+        """Obtener API key del usuario (desencriptada) o del .env."""
+        user_api_keys = self.user_config.get('api_keys', {})
         
-        env_keys = {
+        # Mapeo de providers a variables de entorno
+        env_fallbacks = {
             'openai': settings.OPENAI_API_KEY,
             'anthropic': settings.ANTHROPIC_API_KEY,
             'google': settings.GOOGLE_AI_API_KEY,
             'deepseek': os.getenv('DEEPSEEK_API_KEY', ''),
         }
-        return env_keys.get(provider)
+        
+        return get_decrypted_api_key(
+            user_api_keys,
+            provider,
+            env_fallbacks.get(provider)
+        )
     
     def _get_llm_model(self) -> str:
         """
