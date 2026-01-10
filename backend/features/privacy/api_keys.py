@@ -6,10 +6,32 @@ Funciones helper para encriptar/desencriptar API keys de forma segura.
 
 from typing import Optional, Dict
 import structlog
+import base64
 
 from features.privacy.encryption import get_encryption_service
 
 logger = structlog.get_logger()
+
+
+def encrypt_api_key(key: str) -> str:
+    """
+    Encriptar API key para almacenamiento seguro.
+    
+    Usa EncryptionService que deriva la clave de SECRET_KEY de forma determinista.
+    Esto permite desencriptar las keys después de reiniciar el servidor.
+    
+    Args:
+        key: API key en texto plano
+        
+    Returns:
+        API key encriptada como string base64
+    """
+    if not key:
+        return ""
+    
+    encryption_service = get_encryption_service()
+    encrypted_bytes = encryption_service.encrypt_bytes(key.encode('utf-8'))
+    return base64.urlsafe_b64encode(encrypted_bytes).decode('utf-8')
 
 
 def decrypt_api_key(encrypted_key: str) -> Optional[str]:

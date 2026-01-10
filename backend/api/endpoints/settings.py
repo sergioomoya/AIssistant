@@ -13,7 +13,6 @@ from core.database import get_db
 from core.security import get_current_user
 from core.config import settings
 from models.user import User
-from features.privacy.encryption import get_encryption_service
 from api.schemas.settings import (
     DeploymentModeUpdate,
     APIKeysUpdate,
@@ -30,16 +29,7 @@ logger = structlog.get_logger()
 
 # ========== Helpers ==========
 
-def encrypt_api_key(key: str) -> str:
-    """Encriptar API key para almacenamiento seguro."""
-    if not key:
-        return ""
-    
-    import base64
-    encryption_service = get_encryption_service()
-    encrypted_bytes = encryption_service.encrypt_bytes(key.encode('utf-8'))
-    return base64.urlsafe_b64encode(encrypted_bytes).decode('utf-8')
-
+from features.privacy.api_keys import encrypt_api_key
 
 async def _get_user(db: AsyncSession, user_id: int) -> User:
     """Obtener usuario por ID."""
