@@ -11,6 +11,18 @@ import os
 
 from core.config import settings
 from features.privacy.api_keys import get_decrypted_api_key
+from features.summarization.response_parser import (
+    parse_meeting_summary,
+    parse_action_items,
+    parse_sentiment,
+    MeetingSummary,
+    ActionItem,
+    SentimentAnalysis,
+    MEETING_SUMMARY_JSON_PROMPT,
+    ACTION_ITEMS_JSON_PROMPT,
+    SENTIMENT_JSON_PROMPT,
+)
+from features.summarization.model_validator import get_best_available_model, ModelValidator
 
 logger = structlog.get_logger()
 
@@ -72,52 +84,90 @@ class LiteLLMService:
         preferences = self.user_config.get('preferences', {})
         user_model = preferences.get('llm_model')
         
-        # Si el usuario tiene un modelo configurado, usarlo
+        # Determinar modelo base
         if user_model:
-            # Mapear modelos a formato LiteLLM (Next-Gen 2026)
-            model_mapping = {
-                # Next-Gen 2026 Models
-                'gpt-5.2': 'gpt-5.2',  # Cuando esté disponible
-                'gpt-5': 'gpt-5',
-                'deepseek-r1': 'ollama/deepseek-r1',  # Local vía Ollama
-                'deepseek-r1-api': 'deepseek/deepseek-r1',  # API
-                # Modelos actuales
-                'gpt-4o-mini': 'gpt-4o-mini',
-                'gpt-4o': 'gpt-4o',
-                'gpt-4-turbo': 'gpt-4-turbo-preview',
-                'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
-                'claude-3-opus': 'claude-3-opus-20240229',
-                'gemini-1.5-flash': 'gemini/gemini-1.5-flash',
-                'gemini-1.5-pro': 'gemini/gemini-1.5-pro',
-                'deepseek-chat': 'deepseek/deepseek-chat',
-                'deepseek-coder': 'deepseek/deepseek-coder',
-                # Modelos locales (Ollama)
-                'llama3.2': 'ollama/llama3.2',
-                'llama3.1': 'ollama/llama3.1',
-                'mistral': 'ollama/mistral',
-                'phi3': 'ollama/phi3',
-            }
-            
-            mapped_model = model_mapping.get(user_model, user_model)
-            # Si el modelo ya tiene el prefijo correcto, usarlo directamente
-            if '/' in mapped_model or mapped_model.startswith('gpt-') or mapped_model.startswith('claude-'):
-                return mapped_model
-            # Si no, asumir que es un modelo de Ollama
-            if self.deployment_mode == "local":
-                return f"ollama/{mapped_model}"
-            return mapped_model
-        
-        # Fallback a configuración global
-        if settings.LLM_MODEL_NAME:
-            return settings.LLM_MODEL_NAME
-        
-        # Fallback por modo de despliegue
-        if self.deployment_mode == "local":
-            return "ollama/deepseek-r1"  # Next-Gen 2026: DeepSeek R1 local
+            base_model = user_model
+        elif settings.LLM_MODEL_NAME:
+            base_model = settings.LLM_MODEL_NAME
+        elif self.deployment_mode == "local":
+            base_model = "deepseek-r1"
         elif self.deployment_mode == "cloud":
-            return "gpt-5.2"  # Next-Gen 2026: GPT-5.2 en nube
+            base_model = "gpt-5.2"
         else:
-            return "gpt-4o-mini"  # Híbrido: modelo balanceado
+            base_model = "gpt-4o-mini"
+        
+        # Mapear a formato LiteLLM
+        return self._map_model_to_litellm(base_model)
+    
+    def _map_model_to_litellm(self, model_id: str) -> str:
+        """Mapear ID de modelo a formato LiteLLM."""
+        model_mapping = {
+            # Next-Gen 2026 Models
+            'gpt-5.2': 'gpt-5.2',
+            'gpt-5': 'gpt-5',
+            'deepseek-r1': 'ollama/deepseek-r1',
+            'deepseek-r1-api': 'deepseek/deepseek-r1',
+            # Modelos actuales
+            'gpt-4o-mini': 'gpt-4o-mini',
+            'gpt-4o': 'gpt-4o',
+            'gpt-4-turbo': 'gpt-4-turbo-preview',
+            'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
+            'claude-3-opus': 'claude-3-opus-20240229',
+            'gemini-1.5-flash': 'gemini/gemini-1.5-flash',
+            'gemini-1.5-pro': 'gemini/gemini-1.5-pro',
+            'deepseek-chat': 'deepseek/deepseek-chat',
+            'deepseek-coder': 'deepseek/deepseek-coder',
+            # Modelos locales (Ollama)
+            'llama3.2': 'ollama/llama3.2',
+            'llama3.1': 'ollama/llama3.1',
+            'mistral': 'ollama/mistral',
+            'phi3': 'ollama/phi3',
+        }
+        
+        mapped = model_mapping.get(model_id, model_id)
+        
+        # Si el modelo ya tiene prefijo, devolverlo
+        if '/' in mapped or mapped.startswith('gpt-') or mapped.startswith('claude-'):
+            return mapped
+        
+        # Asumir Ollama para modelos locales sin prefijo
+        if self.deployment_mode == "local":
+            return f"ollama/{mapped}"
+        
+        return mapped
+    
+    async def _get_validated_model(self) -> str:
+        """
+        Obtener modelo validado con fallbacks automáticos.
+        
+        Verifica disponibilidad y usa fallbacks si el modelo preferido
+        no está disponible.
+        """
+        preferred = self._get_llm_model()
+        # Extraer ID base del modelo (sin prefijo ollama/)
+        base_id = preferred.split('/')[-1] if '/' in preferred else preferred
+        
+        # Definir fallbacks según modo de despliegue
+        if self.deployment_mode == "local":
+            fallbacks = ["llama3.2", "mistral", "phi3"]
+        elif self.deployment_mode == "cloud":
+            fallbacks = ["gpt-4o-mini", "claude-3-5-sonnet", "gemini-1.5-flash"]
+        else:
+            fallbacks = ["gpt-4o-mini", "deepseek-r1", "llama3.2"]
+        
+        # Validar y obtener mejor modelo disponible
+        best_model = await get_best_available_model(
+            base_id,
+            self.user_config.get('api_keys', {}),
+            fallbacks
+        )
+        
+        if best_model:
+            return self._map_model_to_litellm(best_model)
+        
+        # Último recurso: usar el modelo preferido y dejar que LiteLLM maneje el error
+        logger.warning("No se pudo validar ningún modelo, usando preferido", model=preferred)
+        return preferred
     
     def _initialize_litellm(self):
         """Inicializar LiteLLM con configuración de API keys."""
@@ -158,6 +208,16 @@ class LiteLLMService:
             logger.warning("LiteLLM no instalado. Usando implementación fallback.")
             self._litellm_client = None
     
+    def _supports_json_mode(self, model: str) -> bool:
+        """Verificar si el modelo soporta response_format JSON."""
+        json_mode_models = [
+            'gpt-4', 'gpt-3.5', 'gpt-5',  # OpenAI
+            'claude-3',  # Anthropic (parcial)
+            'gemini',  # Google
+        ]
+        model_lower = model.lower()
+        return any(m in model_lower for m in json_mode_models)
+    
     async def generate_meeting_summary(
         self,
         transcript_text: str,
@@ -165,9 +225,9 @@ class LiteLLMService:
         custom_prompt: Optional[str] = None,
         meeting_type: str = "GENERAL",
         max_length: int = 1000
-    ) -> Dict[str, Any]:
+    ) -> MeetingSummary:
         """
-        Generar resumen de reunión usando LiteLLM.
+        Generar resumen de reunión usando LiteLLM con parsing robusto.
         
         Args:
             transcript_text: Texto de la transcripción
@@ -177,24 +237,27 @@ class LiteLLMService:
             max_length: Longitud máxima del resumen
             
         Returns:
-            Dict con summary, key_points, decisions, etc.
+            MeetingSummary con summary, key_points, decisions, action_items, etc.
         """
         if not self._litellm_client:
             raise RuntimeError("LiteLLM no está disponible")
         
         from features.summarization.prompts import get_prompt_for_type
         
-        # Usar prompt personalizado o el del tipo de reunión
+        # Usar prompt optimizado para JSON + prompt del tipo de reunión
+        base_prompt = MEETING_SUMMARY_JSON_PROMPT
+        type_prompt = get_prompt_for_type(meeting_type)
+        
         if custom_prompt:
-            prompt = custom_prompt
+            prompt = f"{base_prompt}\n\n{custom_prompt}"
         else:
-            prompt = get_prompt_for_type(meeting_type)
+            prompt = f"{base_prompt}\n\nInstrucciones adicionales:\n{type_prompt}"
         
         # Añadir contexto si existe
         if context:
             prompt = f"{prompt}\n\nContexto previo: {context}"
         
-        # Añadir transcripción
+        # Añadir transcripción (limitada para no exceder tokens)
         prompt = f"{prompt}\n\nTranscripción:\n---\n{transcript_text[:15000]}\n---"
         
         model = self._get_llm_model()
@@ -202,30 +265,37 @@ class LiteLLMService:
         try:
             import litellm
             
+            # Configurar response_format si el modelo lo soporta
+            extra_params = {}
+            if self._supports_json_mode(model):
+                extra_params["response_format"] = {"type": "json_object"}
+            
             response = await litellm.acompletion(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "Eres un asistente experto en análisis de reuniones. Responde siempre en formato JSON válido."},
+                    {
+                        "role": "system", 
+                        "content": "Eres un asistente experto en análisis de reuniones. "
+                                   "SIEMPRE respondes con JSON válido, sin texto adicional."
+                    },
                     {"role": "user", "content": prompt}
                 ],
                 temperature=settings.SUMMARY_TEMPERATURE,
                 max_tokens=settings.SUMMARY_MAX_TOKENS,
-                response_format={"type": "json_object"} if "gpt" in model.lower() or "claude" in model.lower() else None,
+                **extra_params
             )
             
             content = response.choices[0].message.content
             
-            # Parsear JSON
-            import json
-            try:
-                result = json.loads(content)
-            except json.JSONDecodeError:
-                # Si no es JSON válido, crear estructura básica
-                result = {
-                    "summary": content,
-                    "key_points": [],
-                    "decisions": [],
-                }
+            # Usar parser robusto
+            result = parse_meeting_summary(content)
+            
+            logger.info(
+                "Resumen generado exitosamente",
+                model=model,
+                key_points_count=len(result.key_points),
+                action_items_count=len(result.action_items)
+            )
             
             return result
             
@@ -233,88 +303,82 @@ class LiteLLMService:
             logger.error("Error generando resumen con LiteLLM", error=str(e), model=model)
             raise
     
-    async def analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        """Analizar sentimiento de la conversación."""
+    async def analyze_sentiment(self, text: str) -> SentimentAnalysis:
+        """Analizar sentimiento de la conversación con parsing robusto."""
         if not self._litellm_client:
-            return {"sentiment": "neutral", "score": 0.5}
+            return SentimentAnalysis(sentiment="neutral", score=0.5)
         
-        prompt = f"""Analiza el sentimiento general de la siguiente conversación.
+        prompt = f"""{SENTIMENT_JSON_PROMPT}
 
 Transcripción:
 ---
 {text[:10000]}
----
-
-Responde en formato JSON con:
-- "sentiment": "positive", "neutral", "negative" o "mixed"
-- "score": número entre 0 (muy negativo) y 1 (muy positivo)
-- "explanation": breve explicación del análisis"""
+---"""
 
         model = self._get_llm_model()
         
         try:
             import litellm
             
+            extra_params = {}
+            if self._supports_json_mode(model):
+                extra_params["response_format"] = {"type": "json_object"}
+            
             response = await litellm.acompletion(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "Eres un analista de sentimientos. Responde en JSON."},
+                    {"role": "system", "content": "Eres un analista de sentimientos. Responde SOLO con JSON válido."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
                 max_tokens=200,
+                **extra_params
             )
             
-            import json
-            try:
-                return json.loads(response.choices[0].message.content)
-            except json.JSONDecodeError:
-                return {"sentiment": "neutral", "score": 0.5}
+            # Usar parser robusto
+            return parse_sentiment(response.choices[0].message.content)
                 
         except Exception as e:
             logger.error("Error analizando sentimiento", error=str(e))
-            return {"sentiment": "neutral", "score": 0.5}
+            return SentimentAnalysis(sentiment="neutral", score=0.5)
     
-    async def extract_action_items(self, transcript_text: str) -> List[Dict]:
-        """Extraer elementos de acción de la transcripción."""
+    async def extract_action_items(self, transcript_text: str) -> List[ActionItem]:
+        """Extraer elementos de acción de la transcripción con parsing robusto."""
         if not self._litellm_client:
             return []
         
-        prompt = f"""Extrae los elementos de acción (tareas, compromisos, próximos pasos) de esta transcripción.
+        prompt = f"""{ACTION_ITEMS_JSON_PROMPT}
 
 Transcripción:
 ---
 {transcript_text[:12000]}
----
-
-Para cada elemento de acción, identifica:
-- "title": descripción corta de la tarea
-- "description": detalles adicionales si los hay
-- "assignee": persona responsable (si se menciona)
-- "due_date": fecha límite (si se menciona, formato YYYY-MM-DD)
-
-Responde en formato JSON como array de objetos."""
+---"""
 
         model = self._get_llm_model()
         
         try:
             import litellm
             
+            extra_params = {}
+            if self._supports_json_mode(model):
+                extra_params["response_format"] = {"type": "json_object"}
+            
             response = await litellm.acompletion(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "Eres un asistente que extrae tareas. Responde en JSON array."},
+                    {"role": "system", "content": "Eres un asistente que extrae tareas. Responde SOLO con JSON array válido."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
                 max_tokens=1000,
+                **extra_params
             )
             
-            import json
-            try:
-                return json.loads(response.choices[0].message.content)
-            except json.JSONDecodeError:
-                return []
+            # Usar parser robusto
+            items = parse_action_items(response.choices[0].message.content)
+            
+            logger.info("Action items extraídos", count=len(items), model=model)
+            return items
                 
         except Exception as e:
             logger.error("Error extrayendo action items", error=str(e))

@@ -16,6 +16,7 @@ celery_app = Celery(
         "features.transcription.tasks",
         "features.summarization.tasks",
         "features.meetings.tasks",
+        "features.cleanup.temp_file_cleaner",
     ]
 )
 
@@ -52,6 +53,22 @@ celery_app.conf.result_backend_transport_options = {
 # Configuración de retry
 celery_app.conf.task_acks_late = True
 celery_app.conf.task_reject_on_worker_lost = True
+
+# Configuración de Celery Beat (tareas programadas)
+celery_app.conf.beat_schedule = {
+    # Limpieza de archivos de audio expirados - cada hora
+    'cleanup-expired-audio-hourly': {
+        'task': 'cleanup.expired_audio_files',
+        'schedule': 3600.0,  # 1 hora
+        'options': {'queue': 'default'}
+    },
+    # Limpieza de archivos huérfanos - cada 24 horas
+    'cleanup-orphaned-daily': {
+        'task': 'cleanup.orphaned_files',
+        'schedule': 86400.0,  # 24 horas
+        'options': {'queue': 'default'}
+    },
+}
 
 if __name__ == "__main__":
     celery_app.start()

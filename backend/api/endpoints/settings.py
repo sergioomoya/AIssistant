@@ -350,33 +350,156 @@ async def get_available_llm_models(
     db: AsyncSession = Depends(get_db)
 ):
     """Obtener modelos LLM disponibles (Next-Gen 2026)."""
+    from features.summarization.model_validator import ModelValidator, ModelStatus
+    
     # Obtener modelo actual del usuario
     result = await db.execute(
         select(User).where(User.id == int(current_user["user_id"]))
     )
     user = result.scalar_one_or_none()
     preferences = user.preferences or {} if user else {}
+    api_keys = user.api_keys or {} if user else {}
     current_model = preferences.get("llm_model") or (settings.LLM_MODEL_NAME if settings.LLM_MODEL_NAME else (settings.OLLAMA_MODEL if settings.DEPLOYMENT_MODE == "local" else "gpt-5.2"))
     
+    # Validar disponibilidad de modelos
+    validator = ModelValidator(api_keys)
+    
+    local_models_base = [
+        {"id": "deepseek-r1", "name": "DeepSeek R1 (Next-Gen 2026)", "provider": "Ollama", "recommended": True},
+        {"id": "llama3.2", "name": "Llama 3.2", "provider": "Ollama"},
+        {"id": "llama3.1", "name": "Llama 3.1", "provider": "Ollama"},
+        {"id": "mistral", "name": "Mistral 7B", "provider": "Ollama"},
+        {"id": "phi3", "name": "Phi-3", "provider": "Ollama"}
+    ]
+    
+    cloud_models_base = [
+        {"id": "gpt-5.2", "name": "GPT-5.2 (Next-Gen 2026)", "provider": "OpenAI", "recommended": True},
+        {"id": "gpt-5", "name": "GPT-5", "provider": "OpenAI"},
+        {"id": "gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
+        {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
+        {"id": "deepseek-r1-api", "name": "DeepSeek R1 API (Next-Gen 2026)", "provider": "DeepSeek"},
+        {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
+        {"id": "claude-3-opus", "name": "Claude 3 Opus", "provider": "Anthropic"},
+        {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"},
+        {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "Google"}
+    ]
+    
+    # Añadir estado de disponibilidad a cada modelo
+    for model in local_models_base:
+        validation = await validator.validate_model(model["id"])
+        model["status"] = validation.status.value
+        model["status_message"] = validation.message
+    
+    for model in cloud_models_base:
+        validation = await validator.validate_model(model["id"])
+        model["status"] = validation.status.value
+        model["status_message"] = validation.message
+    
     return {
-        "local_models": [
-            {"id": "deepseek-r1", "name": "DeepSeek R1 (Next-Gen 2026)", "provider": "Ollama", "recommended": True},
-            {"id": "llama3.2", "name": "Llama 3.2", "provider": "Ollama"},
-            {"id": "llama3.1", "name": "Llama 3.1", "provider": "Ollama"},
-            {"id": "mistral", "name": "Mistral 7B", "provider": "Ollama"},
-            {"id": "phi3", "name": "Phi-3", "provider": "Ollama"}
-        ],
-        "cloud_models": [
-            {"id": "gpt-5.2", "name": "GPT-5.2 (Next-Gen 2026)", "provider": "OpenAI", "recommended": True},
-            {"id": "gpt-5", "name": "GPT-5", "provider": "OpenAI"},
-            {"id": "gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
-            {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
-            {"id": "deepseek-r1-api", "name": "DeepSeek R1 API (Next-Gen 2026)", "provider": "DeepSeek"},
-            {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
-            {"id": "claude-3-opus", "name": "Claude 3 Opus", "provider": "Anthropic"},
-            {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"},
-            {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "Google"}
-        ],
+        "local_models": local_models_base,
+        "cloud_models": cloud_models_base,
         "current_model": current_model
+    }
+
+
+@router.get("/models/validate/{model_id}")
+async def validate_model(
+    model_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Validar disponibilidad de un modelo específico.
+    
+    Retorna estado detallado del modelo incluyendo si está disponible,
+    si requiere descarga, o si falta API key.
+    """
+    from features.summarization.model_validator import ModelValidator
+    
+    result = await db.execute(
+        select(User).where(User.id == int(current_user["user_id"]))
+    )
+    user = result.scalar_one_or_none()
+    api_keys = user.api_keys or {} if user else {}
+    
+    validator = ModelValidator(api_keys)
+    validation = await validator.validate_model(model_id)
+    
+    return {
+        "model_id": validation.model_id,
+        "status": validation.status.value,
+        "message": validation.message,
+        "provider": validation.provider,
+        "is_local": validation.is_local,
+        "requires_api_key": validation.requires_api_key,
+        "estimated_download_size": validation.estimated_download_size
+    }
+
+
+# ========== Endpoints de Limpieza ==========
+
+@router.get("/storage/status")
+async def get_storage_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Obtener estado del almacenamiento de archivos temporales.
+    
+    Retorna información sobre uso de disco y archivos pendientes de limpieza.
+    """
+    from features.cleanup import TempFileCleaner
+    
+    cleaner = TempFileCleaner()
+    disk_usage = cleaner.get_disk_usage()
+    
+    return {
+        "temp_storage": disk_usage,
+        "auto_cleanup_enabled": True,
+        "cleanup_schedule": "Cada hora para expirados, cada 24h para huérfanos"
+    }
+
+
+@router.post("/storage/cleanup")
+async def trigger_manual_cleanup(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ejecutar limpieza manual de archivos temporales del usuario.
+    
+    Solo elimina archivos del usuario actual que hayan expirado
+    según su configuración de auto_delete_audio_hours.
+    """
+    from features.cleanup import TempFileCleaner
+    
+    result = await db.execute(
+        select(User).where(User.id == int(current_user["user_id"]))
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if user.auto_delete_audio_hours == 0:
+        return {
+            "message": "Auto-eliminación desactivada. Configure auto_delete_audio_hours > 0 para habilitar.",
+            "files_deleted": 0,
+            "bytes_freed": 0
+        }
+    
+    cleaner = TempFileCleaner()
+    stats = await cleaner._cleanup_user_files(db, user)
+    
+    logger.info(
+        "Limpieza manual ejecutada",
+        user_id=user.id,
+        files_deleted=stats["files_deleted"],
+        bytes_freed=stats["bytes_freed"]
+    )
+    
+    return {
+        "message": "Limpieza completada",
+        "files_deleted": stats["files_deleted"],
+        "bytes_freed_mb": round(stats["bytes_freed"] / (1024 * 1024), 2)
     }
 
