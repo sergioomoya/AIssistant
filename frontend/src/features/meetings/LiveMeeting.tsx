@@ -17,6 +17,8 @@ import {
   MessageSquare,
   Activity,
   Users,
+  Monitor,
+  MonitorSpeaker,
 } from 'lucide-react'
 
 /**
@@ -47,19 +49,24 @@ export default function LiveMeeting() {
   
   const [showSettings, setShowSettings] = useState(false)
   
-  // Hook de captura de audio
+  // Hook de captura de audio mejorado
   const {
     isCapturing,
+    captureMode,
     error: audioError,
-    startCapture,
+    startMicrophoneCapture,
+    startSystemCapture,
+    startBothCapture,
     stopCapture,
     getAudioLevel,
   } = useAudioCapture({
-    onAudioChunk: (chunk) => {
-      // Enviar chunk al WebSocket
+    onAudioChunk: (chunk, isUserAudio) => {
+      // Enviar chunk al WebSocket con metadata de origen
       sendAudioChunk(chunk)
     },
   })
+  
+  const [showCaptureOptions, setShowCaptureOptions] = useState(false)
   
   // Hook de WebSocket para transcripción
   const {
@@ -128,14 +135,25 @@ export default function LiveMeeting() {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [liveTranscript, partialText])
   
-  // Iniciar grabación
-  const handleStart = async () => {
+  // Iniciar grabación con modo seleccionado
+  const handleStart = async (mode: 'microphone' | 'system' | 'both') => {
     try {
-      await startCapture()
+      setShowCaptureOptions(false)
+      
+      if (mode === 'microphone') {
+        await startMicrophoneCapture()
+        toast.success('Grabación de micrófono iniciada')
+      } else if (mode === 'system') {
+        await startSystemCapture()
+        toast.success('Grabación de audio del sistema iniciada')
+      } else {
+        await startBothCapture()
+        toast.success('Grabación completa iniciada (micrófono + sistema)')
+      }
+      
       startRecording(Number(id))
-      toast.success('Grabación iniciada')
-    } catch (error) {
-      toast.error('Error al iniciar la grabación')
+    } catch (error: any) {
+      toast.error(error.message || 'Error al iniciar la grabación')
     }
   }
   
@@ -222,18 +240,85 @@ export default function LiveMeeting() {
             )} />
             {isConnected ? 'Conectado' : 'Desconectado'}
           </div>
+          
+          {/* Indicador de modo de captura */}
+          {captureMode && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-primary-500/10 text-primary-400">
+              {captureMode === 'microphone' && <Mic className="w-3 h-3" />}
+              {captureMode === 'system' && <Monitor className="w-3 h-3" />}
+              {captureMode === 'both' && <MonitorSpeaker className="w-3 h-3" />}
+              {captureMode === 'microphone' ? 'Micrófono' : captureMode === 'system' ? 'Sistema' : 'Ambos'}
+            </div>
+          )}
         </div>
         
         {/* Controles */}
         <div className="flex items-center gap-3">
           {!isRecording ? (
-            <button
-              onClick={handleStart}
-              className="btn-accent flex items-center gap-2 px-6"
-            >
-              <Mic className="w-5 h-5" />
-              Iniciar grabación
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowCaptureOptions(!showCaptureOptions)}
+                className="btn-accent flex items-center gap-2 px-6"
+              >
+                <Mic className="w-5 h-5" />
+                Iniciar grabación
+              </button>
+              
+              {/* Menú de opciones de captura */}
+              <AnimatePresence>
+                {showCaptureOptions && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full right-0 mt-2 w-72 bg-surface-800 border border-surface-700 rounded-xl shadow-xl z-50 overflow-hidden"
+                  >
+                    <div className="p-2 border-b border-surface-700">
+                      <p className="text-xs text-surface-400 px-2">Selecciona modo de captura</p>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleStart('microphone')}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-surface-700 transition-colors text-left"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
+                        <Mic className="w-5 h-5 text-primary-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">Solo micrófono</p>
+                        <p className="text-xs text-surface-400">Graba solo tu voz</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => handleStart('system')}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-surface-700 transition-colors text-left"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-accent-500/20 flex items-center justify-center">
+                        <Monitor className="w-5 h-5 text-accent-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">Audio del sistema</p>
+                        <p className="text-xs text-surface-400">Graba audio de apps (Zoom, Teams...)</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => handleStart('both')}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-surface-700 transition-colors text-left border-t border-surface-700"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                        <MonitorSpeaker className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">Micrófono + Sistema</p>
+                        <p className="text-xs text-surface-400">Captura completa (recomendado)</p>
+                      </div>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
             <>
               <button

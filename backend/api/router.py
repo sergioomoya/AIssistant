@@ -6,7 +6,7 @@ Agrupa todos los endpoints de la aplicación.
 
 from fastapi import APIRouter
 
-from api.endpoints import auth, oauth, meetings, transcription, summarization, settings, export, tasks
+from api.endpoints import auth, oauth, meetings, transcription, summarization, settings, export, tasks, calendar
 
 api_router = APIRouter()
 
@@ -22,6 +22,13 @@ api_router.include_router(
     oauth.router,
     prefix="/oauth",
     tags=["OAuth"]
+)
+
+# Calendarios (Google Calendar, Outlook)
+api_router.include_router(
+    calendar.router,
+    prefix="/calendar",
+    tags=["Calendarios"]
 )
 
 # Reuniones

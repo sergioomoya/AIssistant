@@ -12,6 +12,7 @@ import MeetingsList from '@/features/meetings/MeetingsList'
 import MeetingDetail from '@/features/meetings/MeetingDetail'
 import LiveMeeting from '@/features/meetings/LiveMeeting'
 import Settings from '@/features/settings/Settings'
+import CalendarCallback from '@/features/settings/CalendarCallback'
 import Login from '@/features/auth/Login'
 import Register from '@/features/auth/Register'
 import GoogleCallback from '@/features/auth/GoogleCallback'
@@ -62,6 +63,14 @@ export default function App() {
       
       {/* OAuth Callbacks */}
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
+      <Route 
+        path="/settings/calendar/callback" 
+        element={
+          <ProtectedRoute>
+            <CalendarCallback />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Onboarding - Configuración inicial */}
       <Route

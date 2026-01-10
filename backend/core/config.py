@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     
     # ----- Aplicación -----
     APP_NAME: str = "AIssistant"
-    APP_VERSION: str = "1.0.1"
+    APP_VERSION: str = "1.1.0"
     DEBUG: bool = False
     
     # ----- Modo de Despliegue -----
@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     # ----- OAuth Providers -----
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
+    
+    # ----- Microsoft OAuth (Calendar) -----
+    MICROSOFT_CLIENT_ID: str = ""
+    MICROSOFT_CLIENT_SECRET: str = ""
+    MICROSOFT_TENANT_ID: str = "common"  # "common" para multi-tenant
+    
+    # ----- Calendar Sync -----
+    CALENDAR_SYNC_INTERVAL_MINUTES: int = 15
+    CALENDAR_SYNC_DAYS_AHEAD: int = 7  # Días hacia adelante a sincronizar
     
     # ----- Ollama (Modo Local) -----
     OLLAMA_BASE_URL: str = "http://ollama:11434"

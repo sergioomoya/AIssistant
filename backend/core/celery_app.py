@@ -17,6 +17,7 @@ celery_app = Celery(
         "features.summarization.tasks",
         "features.meetings.tasks",
         "features.cleanup.temp_file_cleaner",
+        "features.calendar.tasks",
     ]
 )
 
@@ -56,6 +57,18 @@ celery_app.conf.task_reject_on_worker_lost = True
 
 # Configuración de Celery Beat (tareas programadas)
 celery_app.conf.beat_schedule = {
+    # Sincronización de calendarios - cada 15 minutos
+    'calendar-sync-all-users': {
+        'task': 'calendar.sync_all_users',
+        'schedule': 900.0,  # 15 minutos
+        'options': {'queue': 'default'}
+    },
+    # Refresco de tokens próximos a expirar - cada 30 minutos
+    'calendar-refresh-tokens': {
+        'task': 'calendar.refresh_tokens',
+        'schedule': 1800.0,  # 30 minutos
+        'options': {'queue': 'default'}
+    },
     # Limpieza de archivos de audio expirados - cada hora
     'cleanup-expired-audio-hourly': {
         'task': 'cleanup.expired_audio_files',
