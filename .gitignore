@@ -62,8 +62,10 @@ secrets/
 # Transcription outputs (local)
 transcriptions_local/
 
-# ML Models (downloaded locally)
-models/
+# ML Models (downloaded locally - not SQLAlchemy models)
+/models/
+ml_models/
+!backend/models/
 *.bin
 *.pt
 *.onnx
