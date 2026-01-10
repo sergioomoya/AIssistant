@@ -3,17 +3,17 @@ AIssistant - Endpoints de Gestión de Reuniones
 ==============================================
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func, and_
 from pydantic import BaseModel
 
 from core.database import get_db
 from core.security import get_current_user
 from models.meeting import Meeting, MeetingStatus, MeetingParticipant
-from models.action_item import ActionItem
+from models.action_item import ActionItem, ActionItemStatus
 
 router = APIRouter()
 
@@ -107,7 +107,152 @@ class MeetingListResponse(BaseModel):
     meetings: List[MeetingResponse]
 
 
+class DashboardStatsResponse(BaseModel):
+    """Schema de respuesta de estadísticas del dashboard."""
+    meetings_this_month: int
+    meetings_trend: int
+    total_duration_hours: float
+    duration_trend: float
+    action_items_pending: int
+    action_items_completed: int
+    documents_generated: int
+    documents_trend: int
+
+
 # ========== Endpoints ==========
+
+@router.get("/stats", response_model=DashboardStatsResponse)
+async def get_dashboard_stats(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtener estadísticas del dashboard para el usuario.
+    
+    Incluye:
+    - Reuniones este mes y tendencia
+    - Horas transcritas y tendencia
+    - Action items pendientes/completados
+    - Documentos generados
+    """
+    user_id = int(current_user["user_id"])
+    now = datetime.utcnow()
+    
+    # Calcular inicio de mes actual y anterior
+    first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    first_day_last_month = (first_day_this_month - timedelta(days=1)).replace(day=1)
+    
+    # Reuniones este mes
+    result = await db.execute(
+        select(func.count(Meeting.id)).where(
+            and_(
+                Meeting.user_id == user_id,
+                Meeting.created_at >= first_day_this_month
+            )
+        )
+    )
+    meetings_this_month = result.scalar() or 0
+    
+    # Reuniones mes anterior (para calcular tendencia)
+    result = await db.execute(
+        select(func.count(Meeting.id)).where(
+            and_(
+                Meeting.user_id == user_id,
+                Meeting.created_at >= first_day_last_month,
+                Meeting.created_at < first_day_this_month
+            )
+        )
+    )
+    meetings_last_month = result.scalar() or 0
+    meetings_trend = meetings_this_month - meetings_last_month
+    
+    # Duración total este mes (en segundos)
+    result = await db.execute(
+        select(func.coalesce(func.sum(Meeting.duration_seconds), 0)).where(
+            and_(
+                Meeting.user_id == user_id,
+                Meeting.created_at >= first_day_this_month
+            )
+        )
+    )
+    total_duration_seconds = result.scalar() or 0
+    total_duration_hours = total_duration_seconds / 3600
+    
+    # Duración mes anterior
+    result = await db.execute(
+        select(func.coalesce(func.sum(Meeting.duration_seconds), 0)).where(
+            and_(
+                Meeting.user_id == user_id,
+                Meeting.created_at >= first_day_last_month,
+                Meeting.created_at < first_day_this_month
+            )
+        )
+    )
+    last_month_duration_seconds = result.scalar() or 0
+    duration_trend = (total_duration_seconds - last_month_duration_seconds) / 3600
+    
+    # Action items pendientes
+    result = await db.execute(
+        select(func.count(ActionItem.id)).where(
+            and_(
+                ActionItem.meeting_id.in_(
+                    select(Meeting.id).where(Meeting.user_id == user_id)
+                ),
+                ActionItem.status == ActionItemStatus.PENDING.value
+            )
+        )
+    )
+    action_items_pending = result.scalar() or 0
+    
+    # Action items completados
+    result = await db.execute(
+        select(func.count(ActionItem.id)).where(
+            and_(
+                ActionItem.meeting_id.in_(
+                    select(Meeting.id).where(Meeting.user_id == user_id)
+                ),
+                ActionItem.status == ActionItemStatus.COMPLETED.value
+            )
+        )
+    )
+    action_items_completed = result.scalar() or 0
+    
+    # Documentos generados (reuniones con resumen)
+    result = await db.execute(
+        select(func.count(Meeting.id)).where(
+            and_(
+                Meeting.user_id == user_id,
+                Meeting.summary.isnot(None),
+                Meeting.created_at >= first_day_this_month
+            )
+        )
+    )
+    documents_generated = result.scalar() or 0
+    
+    # Documentos mes anterior
+    result = await db.execute(
+        select(func.count(Meeting.id)).where(
+            and_(
+                Meeting.user_id == user_id,
+                Meeting.summary.isnot(None),
+                Meeting.created_at >= first_day_last_month,
+                Meeting.created_at < first_day_this_month
+            )
+        )
+    )
+    documents_last_month = result.scalar() or 0
+    documents_trend = documents_generated - documents_last_month
+    
+    return DashboardStatsResponse(
+        meetings_this_month=meetings_this_month,
+        meetings_trend=meetings_trend,
+        total_duration_hours=round(total_duration_hours, 1),
+        duration_trend=round(duration_trend, 1),
+        action_items_pending=action_items_pending,
+        action_items_completed=action_items_completed,
+        documents_generated=documents_generated,
+        documents_trend=documents_trend,
+    )
 
 @router.post("/", response_model=MeetingResponse, status_code=status.HTTP_201_CREATED)
 async def create_meeting(
