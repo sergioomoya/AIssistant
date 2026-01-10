@@ -17,7 +17,7 @@ from core.config import settings
 from models.meeting import Meeting, MeetingStatus
 from models.transcript import Transcript
 from models.action_item import ActionItem, ActionItemStatus
-from features.summarization.llm_service import LLMService
+from features.summarization.llm_service_litellm import LiteLLMService, get_llm_service_for_user
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -90,17 +90,8 @@ class ChatResponse(BaseModel):
     sources: Optional[List[dict]] = None
 
 
-# ========== Singleton de LLM Service ==========
-
-_llm_service: Optional[LLMService] = None
-
-
-async def get_llm_service() -> LLMService:
-    """Obtener instancia singleton del servicio LLM."""
-    global _llm_service
-    if _llm_service is None:
-        _llm_service = LLMService()
-    return _llm_service
+# ========== LLM Service ==========
+# Usa get_llm_service_for_user de llm_service_litellm para obtener servicio configurado por usuario
 
 
 # ========== Endpoints ==========
@@ -146,8 +137,8 @@ async def generate_summary(
             detail="No hay transcripción disponible para generar resumen"
         )
     
-    # Generar resumen con LLM
-    llm_service = await get_llm_service()
+    # Generar resumen con LLM (usando servicio configurado para el usuario)
+    llm_service = await get_llm_service_for_user(int(current_user["user_id"]), db)
     
     summary_result = await llm_service.generate_meeting_summary(
         transcript_text=transcript.full_text,
@@ -336,7 +327,7 @@ async def chat_with_meeting(
         pass
     
     # Generar respuesta con LLM
-    llm_service = await get_llm_service()
+    llm_service = await get_llm_service_for_user(int(current_user["user_id"]), db)
     response = await llm_service.chat_about_meeting(
         transcript_text=context,
         user_message=chat.message,
