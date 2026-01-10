@@ -14,6 +14,16 @@ from core.config import settings
 from core.database import init_db
 from api.router import api_router
 
+# Importar todos los modelos para que SQLAlchemy los registre
+# Esto debe hacerse antes de inicializar la base de datos
+from models import (  # noqa: F401
+    User,
+    Meeting,
+    CalendarConnection,
+    Transcript,
+    ActionItem,
+)
+
 # Configurar logging estructurado
 structlog.configure(
     processors=[
