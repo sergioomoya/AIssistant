@@ -38,34 +38,56 @@ class ModelValidationResult:
 
 
 # Mapeo de modelos a proveedores y sus requerimientos
+# Actualizado: Enero 2026
 MODEL_REGISTRY = {
+    # ==========================================
     # Modelos locales (Ollama)
-    "deepseek-r1": {"provider": "ollama", "is_local": True, "size": "~4GB"},
-    "llama3.2": {"provider": "ollama", "is_local": True, "size": "~4GB"},
-    "llama3.1": {"provider": "ollama", "is_local": True, "size": "~4GB"},
-    "mistral": {"provider": "ollama", "is_local": True, "size": "~4GB"},
-    "phi3": {"provider": "ollama", "is_local": True, "size": "~2GB"},
+    # ==========================================
+    "deepseek-r1": {"provider": "ollama", "is_local": True, "size": "~8GB", "released": "2025-01"},
+    "llama4": {"provider": "ollama", "is_local": True, "size": "~26GB", "released": "2025-04"},
+    "llama3.2": {"provider": "ollama", "is_local": True, "size": "~4GB", "released": "2024-09"},
+    "qwen2.5": {"provider": "ollama", "is_local": True, "size": "~40GB", "released": "2024-09"},
+    "mistral-large": {"provider": "ollama", "is_local": True, "size": "~12GB", "released": "2024-07"},
+    "phi4": {"provider": "ollama", "is_local": True, "size": "~8GB", "released": "2024-12"},
     
-    # Modelos OpenAI
-    "gpt-5.2": {"provider": "openai", "is_local": False, "api_key": "openai"},
-    "gpt-5": {"provider": "openai", "is_local": False, "api_key": "openai"},
-    "gpt-4o": {"provider": "openai", "is_local": False, "api_key": "openai"},
-    "gpt-4o-mini": {"provider": "openai", "is_local": False, "api_key": "openai"},
-    "gpt-4-turbo": {"provider": "openai", "is_local": False, "api_key": "openai"},
+    # ==========================================
+    # OpenAI
+    # ==========================================
+    "gpt-5": {"provider": "openai", "is_local": False, "api_key": "openai", "released": "2025-08"},
+    "o3": {"provider": "openai", "is_local": False, "api_key": "openai", "released": "2025-12"},
+    "o1": {"provider": "openai", "is_local": False, "api_key": "openai", "released": "2024-12"},
+    "gpt-4o": {"provider": "openai", "is_local": False, "api_key": "openai", "released": "2024-05"},
+    "gpt-4o-mini": {"provider": "openai", "is_local": False, "api_key": "openai", "released": "2024-07"},
     
-    # Modelos Anthropic
-    "claude-3-5-sonnet": {"provider": "anthropic", "is_local": False, "api_key": "anthropic"},
-    "claude-3-opus": {"provider": "anthropic", "is_local": False, "api_key": "anthropic"},
+    # ==========================================
+    # Anthropic
+    # ==========================================
+    "claude-3.7-sonnet": {"provider": "anthropic", "is_local": False, "api_key": "anthropic", "released": "2025-11"},
+    "claude-3.5-sonnet": {"provider": "anthropic", "is_local": False, "api_key": "anthropic", "released": "2024-10"},
+    "claude-3-opus": {"provider": "anthropic", "is_local": False, "api_key": "anthropic", "released": "2024-03"},
     
-    # Modelos Google
-    "gemini-1.5-pro": {"provider": "google", "is_local": False, "api_key": "google"},
-    "gemini-1.5-flash": {"provider": "google", "is_local": False, "api_key": "google"},
+    # ==========================================
+    # Google
+    # ==========================================
+    "gemini-3-pro": {"provider": "google", "is_local": False, "api_key": "google", "released": "2025-11"},
+    "gemini-2.5-pro": {"provider": "google", "is_local": False, "api_key": "google", "released": "2025-05"},
+    "gemini-2.5-flash": {"provider": "google", "is_local": False, "api_key": "google", "released": "2025-05"},
+    "gemini-2.0-flash": {"provider": "google", "is_local": False, "api_key": "google", "released": "2024-12"},
     
-    # Modelos DeepSeek API
-    "deepseek-r1-api": {"provider": "deepseek", "is_local": False, "api_key": "deepseek"},
-    "deepseek-chat": {"provider": "deepseek", "is_local": False, "api_key": "deepseek"},
+    # ==========================================
+    # DeepSeek API
+    # ==========================================
+    "deepseek-r1-api": {"provider": "deepseek", "is_local": False, "api_key": "deepseek", "released": "2025-01"},
+    "deepseek-v3": {"provider": "deepseek", "is_local": False, "api_key": "deepseek", "released": "2024-12"},
     
-    # Modelos de transcripción (Whisper)
+    # ==========================================
+    # xAI
+    # ==========================================
+    "grok-4": {"provider": "xai", "is_local": False, "api_key": "xai", "released": "2025-07"},
+    
+    # ==========================================
+    # Modelos de transcripción (Whisper Local)
+    # ==========================================
     "tiny": {"provider": "whisper", "is_local": True, "size": "~75MB"},
     "base": {"provider": "whisper", "is_local": True, "size": "~140MB"},
     "small": {"provider": "whisper", "is_local": True, "size": "~460MB"},
@@ -73,9 +95,11 @@ MODEL_REGISTRY = {
     "large-v3": {"provider": "whisper", "is_local": True, "size": "~3GB"},
     "large-v3-turbo": {"provider": "whisper", "is_local": True, "size": "~3GB"},
     
+    # ==========================================
     # Modelos de transcripción en nube
-    "deepgram-nova-3": {"provider": "deepgram", "is_local": False, "api_key": "deepgram"},
-    "deepgram-nova-2": {"provider": "deepgram", "is_local": False, "api_key": "deepgram"},
+    # ==========================================
+    "deepgram-nova-3": {"provider": "deepgram", "is_local": False, "api_key": "deepgram", "released": "2025-01"},
+    "deepgram-nova-2": {"provider": "deepgram", "is_local": False, "api_key": "deepgram", "released": "2024-06"},
     "openai-whisper-1": {"provider": "openai", "is_local": False, "api_key": "openai"},
 }
 

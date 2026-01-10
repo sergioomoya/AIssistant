@@ -100,34 +100,61 @@ class LiteLLMService:
         return self._map_model_to_litellm(base_model)
     
     def _map_model_to_litellm(self, model_id: str) -> str:
-        """Mapear ID de modelo a formato LiteLLM."""
+        """
+        Mapear ID de modelo a formato LiteLLM.
+        Actualizado: Enero 2026
+        """
         model_mapping = {
-            # Next-Gen 2026 Models
-            'gpt-5.2': 'gpt-5.2',
+            # ==========================================
+            # OpenAI (2024-2025)
+            # ==========================================
             'gpt-5': 'gpt-5',
+            'o3': 'o3',
+            'o1': 'o1',
+            'gpt-4o': 'gpt-4o',
+            'gpt-4o-mini': 'gpt-4o-mini',
+            
+            # ==========================================
+            # Anthropic (2024-2025)
+            # ==========================================
+            'claude-3.7-sonnet': 'claude-3-7-sonnet-20251120',
+            'claude-3.5-sonnet': 'claude-3-5-sonnet-20241022',
+            'claude-3-opus': 'claude-3-opus-20240229',
+            
+            # ==========================================
+            # Google Gemini (2024-2025)
+            # ==========================================
+            'gemini-3-pro': 'gemini/gemini-3-pro',
+            'gemini-2.5-pro': 'gemini/gemini-2.5-pro',
+            'gemini-2.5-flash': 'gemini/gemini-2.5-flash',
+            'gemini-2.0-flash': 'gemini/gemini-2.0-flash',
+            
+            # ==========================================
+            # DeepSeek (2024-2025)
+            # ==========================================
             'deepseek-r1': 'ollama/deepseek-r1',
             'deepseek-r1-api': 'deepseek/deepseek-r1',
-            # Modelos actuales
-            'gpt-4o-mini': 'gpt-4o-mini',
-            'gpt-4o': 'gpt-4o',
-            'gpt-4-turbo': 'gpt-4-turbo-preview',
-            'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
-            'claude-3-opus': 'claude-3-opus-20240229',
-            'gemini-1.5-flash': 'gemini/gemini-1.5-flash',
-            'gemini-1.5-pro': 'gemini/gemini-1.5-pro',
-            'deepseek-chat': 'deepseek/deepseek-chat',
-            'deepseek-coder': 'deepseek/deepseek-coder',
+            'deepseek-v3': 'deepseek/deepseek-v3',
+            
+            # ==========================================
+            # xAI (2025)
+            # ==========================================
+            'grok-4': 'xai/grok-4',
+            
+            # ==========================================
             # Modelos locales (Ollama)
+            # ==========================================
+            'llama4': 'ollama/llama4',
             'llama3.2': 'ollama/llama3.2',
-            'llama3.1': 'ollama/llama3.1',
-            'mistral': 'ollama/mistral',
-            'phi3': 'ollama/phi3',
+            'qwen2.5': 'ollama/qwen2.5',
+            'mistral-large': 'ollama/mistral-large',
+            'phi4': 'ollama/phi4',
         }
         
         mapped = model_mapping.get(model_id, model_id)
         
         # Si el modelo ya tiene prefijo, devolverlo
-        if '/' in mapped or mapped.startswith('gpt-') or mapped.startswith('claude-'):
+        if '/' in mapped or mapped.startswith(('gpt-', 'claude-', 'o1', 'o3')):
             return mapped
         
         # Asumir Ollama para modelos locales sin prefijo

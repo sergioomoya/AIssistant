@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useAuthSync } from '@/hooks/useAuthSync'
 
 // Layouts
 import MainLayout from '@/components/layouts/MainLayout'
@@ -48,6 +49,9 @@ function RequireOnboarding({ children }: { children: React.ReactNode }) {
  * Componente principal de la aplicación
  */
 export default function App() {
+  // Sincronizar estado de autenticación con el backend
+  useAuthSync()
+
   return (
     <Routes>
       {/* Rutas de autenticación */}
