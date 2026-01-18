@@ -7,7 +7,7 @@ Almacena tokens OAuth para integración con calendarios externos.
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, DateTime, Text, ForeignKey, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, backref
 
 from core.database import Base
 
@@ -54,7 +54,9 @@ class CalendarConnection(Base):
     )
     
     # Relación con usuario
-    user = relationship("User", back_populates="calendar_connections")
+    # Relación unidireccional - NO usar backref ni back_populates para evitar problemas de configuración
+    # Para obtener las conexiones de un usuario, usar queries directas en lugar de relaciones
+    user = relationship("User", viewonly=True)
     
     def __repr__(self) -> str:
         return f"<CalendarConnection(id={self.id}, provider={self.provider}, email={self.account_email})>"

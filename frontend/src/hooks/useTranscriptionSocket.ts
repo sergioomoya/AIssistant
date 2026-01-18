@@ -45,6 +45,13 @@ export function useTranscriptionSocket({
   const RECONNECT_DELAY = 2000
   
   const connect = useCallback(() => {
+    // Validar meetingId antes de conectar
+    if (!meetingId || isNaN(meetingId) || meetingId <= 0) {
+      console.warn('Meeting ID inválido, no se puede conectar WebSocket', meetingId)
+      onError?.('ID de reunión inválido')
+      return
+    }
+    
     // Si ya hay una conexión activa, no hacer nada
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       return
@@ -122,14 +129,16 @@ export function useTranscriptionSocket({
     }
   }, [])
   
-  // Auto-conectar al montar
+  // Auto-conectar al montar solo si meetingId es válido
   useEffect(() => {
-    connect()
+    if (meetingId && !isNaN(meetingId) && meetingId > 0) {
+      connect()
+    }
     
     return () => {
       disconnect()
     }
-  }, []) // Solo al montar/desmontar
+  }, [meetingId, connect, disconnect]) // Reconectar si cambia el meetingId
   
   return {
     isConnected,

@@ -3,21 +3,23 @@
  * Encapsula: audio capture, WebSocket, estado de grabación
  */
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMeetingStore } from '@/stores/meetingStore'
 import { useAudioCapture } from '@/hooks/useAudioCapture'
 import { useTranscriptionSocket } from '@/hooks/useTranscriptionSocket'
+import { api } from '@/utils/api'
 import toast from 'react-hot-toast'
 
 export type CaptureMode = 'microphone' | 'system' | 'both'
 
 interface UseLiveMeetingProps {
-  meetingId: number
+  meetingId?: number
 }
 
-export function useLiveMeeting({ meetingId }: UseLiveMeetingProps) {
+export function useLiveMeeting({ meetingId: initialMeetingId }: UseLiveMeetingProps) {
   const navigate = useNavigate()
+  const [meetingId, setMeetingId] = useState<number | undefined>(initialMeetingId)
   
   const {
     isRecording,
@@ -36,13 +38,14 @@ export function useLiveMeeting({ meetingId }: UseLiveMeetingProps) {
     updateElapsedTime,
   } = useMeetingStore()
   
-  // Hook de WebSocket para transcripción
+  // Hook de WebSocket para transcripción (solo se conecta si hay meetingId válido)
   const {
     isConnected,
     sendAudioChunk,
     disconnect,
+    connect,
   } = useTranscriptionSocket({
-    meetingId,
+    meetingId: meetingId || 0,
     onTranscript: (data) => {
       if (data.type === 'final') {
         addTranscriptSegment({
@@ -127,6 +130,20 @@ export function useLiveMeeting({ meetingId }: UseLiveMeetingProps) {
   // Iniciar grabación
   const handleStart = useCallback(async (mode: CaptureMode) => {
     try {
+      // Crear reunión si no existe
+      let currentMeetingId = meetingId
+      if (!currentMeetingId || isNaN(currentMeetingId) || currentMeetingId <= 0) {
+        const response = await api.post('/meetings', {
+          title: `Reunión ${new Date().toLocaleString()}`,
+          // No enviar status - el backend lo determina automáticamente
+        })
+        currentMeetingId = response.data.id
+        setMeetingId(currentMeetingId)
+        // Navegar a la URL con el ID de la reunión
+        navigate(`/meetings/${currentMeetingId}/live`, { replace: true })
+      }
+      
+      // Iniciar captura de audio
       if (mode === 'microphone') {
         await startMicrophoneCapture()
         toast.success('Grabación de micrófono iniciada')
@@ -138,11 +155,15 @@ export function useLiveMeeting({ meetingId }: UseLiveMeetingProps) {
         toast.success('Grabación completa iniciada (micrófono + sistema)')
       }
       
-      startRecording(meetingId)
+      // Conectar WebSocket y empezar grabación
+      if (currentMeetingId) {
+        connect()
+        startRecording(currentMeetingId)
+      }
     } catch (error: any) {
       toast.error(error.message || 'Error al iniciar la grabación')
     }
-  }, [meetingId, startMicrophoneCapture, startSystemCapture, startBothCapture, startRecording])
+  }, [meetingId, startMicrophoneCapture, startSystemCapture, startBothCapture, startRecording, navigate, connect])
   
   // Detener grabación
   const handleStop = useCallback(async () => {

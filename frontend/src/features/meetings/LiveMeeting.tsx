@@ -19,6 +19,11 @@ export default function LiveMeeting() {
   const { id } = useParams()
   const [showSettings, setShowSettings] = useState(false)
   
+  // Convertir id a número solo si existe y es válido
+  const meetingId = id && !isNaN(Number(id)) && Number(id) > 0 
+    ? Number(id) 
+    : undefined
+  
   const {
     isRecording,
     isPaused,
@@ -31,7 +36,7 @@ export default function LiveMeeting() {
     handleStart,
     handleStop,
     handlePauseResume,
-  } = useLiveMeeting({ meetingId: Number(id) })
+  } = useLiveMeeting({ meetingId })
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col">

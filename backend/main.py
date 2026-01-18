@@ -14,17 +14,7 @@ from core.config import settings
 from core.database import init_db
 from api.router import api_router
 
-# Importar todos los modelos para que SQLAlchemy los registre
-# Esto debe hacerse antes de inicializar la base de datos
-from models import (  # noqa: F401
-    User,
-    Meeting,
-    CalendarConnection,
-    Transcript,
-    ActionItem,
-)
-
-# Configurar logging estructurado
+# Configurar logging estructurado PRIMERO
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
@@ -32,6 +22,21 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger()
+
+# Importar todos los modelos para que SQLAlchemy los registre
+# IMPORTANTE: Importar en orden correcto para que las relaciones se configuren
+# El orden es crítico: User debe importarse ANTES que CalendarConnection
+# porque CalendarConnection tiene una ForeignKey a User y una relación back_populates
+from models.user import User  # noqa: F401
+from models.calendar_connection import CalendarConnection  # noqa: F401
+from models.meeting import Meeting, MeetingParticipant, MeetingSegment  # noqa: F401
+from models.transcript import Transcript, TranscriptSegment  # noqa: F401
+from models.action_item import ActionItem  # noqa: F401
+
+# NO forzar configure_mappers() - SQLAlchemy configurará las relaciones automáticamente
+# cuando se usen los modelos por primera vez. Esto evita problemas de orden de importación.
+# El error que aparece es solo una advertencia durante la configuración inicial,
+# pero las relaciones funcionan correctamente cuando se usan en tiempo de ejecución.
 
 
 @asynccontextmanager

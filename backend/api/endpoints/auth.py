@@ -135,10 +135,21 @@ async def login(
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
+    # Convertir usuario a UserResponse para evitar problemas de serialización con relaciones
+    user_response = UserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        deployment_mode=user.deployment_mode,
+        is_active=user.is_active,
+        is_verified=user.is_verified,
+        onboarding_completed=user.onboarding_completed
+    )
+    
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user
+        "user": user_response
     }
 
 

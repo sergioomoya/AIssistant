@@ -52,19 +52,35 @@ class MicrosoftCalendarService:
         """Obtener URL de tokens con tenant."""
         return MICROSOFT_TOKEN_URL.format(tenant=self.tenant_id)
     
-    def get_authorization_url(self, redirect_uri: str, state: Optional[str] = None) -> str:
+    def get_authorization_url(
+        self, 
+        redirect_uri: str, 
+        state: Optional[str] = None,
+        tenant: Optional[str] = None
+    ) -> str:
         """
         Generar URL de autorización para conectar Microsoft Calendar.
         
         Args:
             redirect_uri: URL de callback después de autorización
             state: Token CSRF opcional
+            tenant: Tipo de tenant ("common", "consumers", "organizations", o tenant específico)
+                    - "common": Permite tanto cuentas personales como empresariales (por defecto)
+                    - "consumers": Solo cuentas personales de Microsoft
+                    - "organizations": Solo cuentas empresariales (Office 365 / Azure AD)
+                    - tenant_id específico: Solo cuentas de ese tenant específico
             
         Returns:
             URL completa para redirigir al usuario
         """
         if not self.is_configured:
             raise ValueError("Microsoft Calendar no está configurado. Configura MICROSOFT_CLIENT_ID y MICROSOFT_CLIENT_SECRET.")
+        
+        # Usar tenant proporcionado o el configurado por defecto
+        tenant_to_use = tenant or self.tenant_id
+        
+        # Construir URL de autorización con el tenant especificado
+        auth_url = MICROSOFT_AUTH_URL.format(tenant=tenant_to_use)
         
         params = {
             "client_id": self.client_id,
@@ -77,12 +93,13 @@ class MicrosoftCalendarService:
         if state:
             params["state"] = state
             
-        return f"{self._get_auth_url()}?{urlencode(params)}"
+        return f"{auth_url}?{urlencode(params)}"
     
     async def exchange_code_for_tokens(
         self,
         code: str,
-        redirect_uri: str
+        redirect_uri: str,
+        tenant: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Intercambiar código de autorización por tokens.
@@ -90,14 +107,19 @@ class MicrosoftCalendarService:
         Args:
             code: Código de autorización de Microsoft
             redirect_uri: URI de redirección usado en la autorización
+            tenant: Tipo de tenant usado en la autorización (opcional, usa el configurado si no se proporciona)
             
         Returns:
             Dict con access_token, refresh_token, expires_in, email
         """
+        # Usar tenant proporcionado o el configurado por defecto
+        tenant_to_use = tenant or self.tenant_id
+        
         async with httpx.AsyncClient() as client:
             # 1. Obtener tokens
+            token_url = MICROSOFT_TOKEN_URL.format(tenant=tenant_to_use)
             token_response = await client.post(
-                self._get_token_url(),
+                token_url,
                 data={
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,

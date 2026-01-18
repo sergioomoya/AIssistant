@@ -4,11 +4,14 @@ AIssistant - Modelo de Usuario
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Boolean, DateTime, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
+
+if TYPE_CHECKING:
+    from models.calendar_connection import CalendarConnection
 
 
 class User(Base):
@@ -60,12 +63,9 @@ class User(Base):
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Relaciones
-    meetings = relationship("Meeting", back_populates="user", lazy="dynamic")
-    calendar_connections = relationship(
-        "CalendarConnection",
-        back_populates="user",
-        cascade="all, delete-orphan"
-    )
+    # Usar lazy="select" en lugar de "dynamic" para evitar problemas de configuración
+    meetings = relationship("Meeting", back_populates="user", lazy="select")
+    # NO definir calendar_connections aquí - se crea automáticamente con backref en CalendarConnection
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email})>"

@@ -5,7 +5,7 @@
 import { cn } from '@/utils/cn'
 
 interface ProviderIconProps {
-  provider: 'google' | 'microsoft' | 'outlook'
+  provider: 'google' | 'microsoft' | 'outlook' | 'apple' | 'calendar'
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
@@ -35,6 +35,25 @@ export function MicrosoftIcon({ className }: { className?: string }) {
   )
 }
 
+export function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+    </svg>
+  )
+}
+
+export function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  )
+}
+
 export function ProviderIcon({ provider, size = 'md', className }: ProviderIconProps) {
   const sizeClass = sizeClasses[size]
   const combinedClassName = cn(sizeClass, className)
@@ -45,8 +64,12 @@ export function ProviderIcon({ provider, size = 'md', className }: ProviderIconP
     case 'microsoft':
     case 'outlook':
       return <MicrosoftIcon className={cn(combinedClassName, 'text-blue-400')} />
+    case 'apple':
+      return <AppleIcon className={cn(combinedClassName, 'text-gray-300')} />
+    case 'calendar':
+      return <CalendarIcon className={cn(combinedClassName, 'text-primary-400')} />
     default:
-      return null
+      return <CalendarIcon className={cn(combinedClassName, 'text-surface-400')} />
   }
 }
 
@@ -54,10 +77,16 @@ export function ProviderIconContainer({
   provider, 
   children 
 }: { 
-  provider: 'google' | 'microsoft' | 'outlook'
+  provider: 'google' | 'microsoft' | 'outlook' | 'apple' | 'calendar'
   children?: React.ReactNode 
 }) {
-  const bgClass = provider === 'google' ? 'bg-red-500/20' : 'bg-blue-500/20'
+  const bgClass = {
+    'google': 'bg-red-500/20',
+    'microsoft': 'bg-blue-500/20',
+    'outlook': 'bg-blue-500/20',
+    'apple': 'bg-gray-500/20',
+    'calendar': 'bg-primary-500/20',
+  }[provider] || 'bg-surface-700'
   
   return (
     <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", bgClass)}>

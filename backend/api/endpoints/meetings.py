@@ -58,6 +58,9 @@ async def create_meeting(
     
     Permite programar una reunión con participantes y contexto pre-reunión.
     """
+    # Determinar status: usar 'in_progress' si no hay scheduled_start, sino 'scheduled'
+    meeting_status = MeetingStatus.IN_PROGRESS.value if not meeting_data.scheduled_start else MeetingStatus.SCHEDULED.value
+    
     new_meeting = Meeting(
         user_id=int(current_user["user_id"]),
         title=meeting_data.title,
@@ -68,7 +71,7 @@ async def create_meeting(
         meeting_url=meeting_data.meeting_url,
         context_notes=meeting_data.context_notes,
         is_confidential=meeting_data.is_confidential,
-        status=MeetingStatus.SCHEDULED.value
+        status=meeting_status
     )
     
     db.add(new_meeting)

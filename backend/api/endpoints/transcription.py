@@ -6,14 +6,14 @@ Transcripción en tiempo real y procesamiento de audio.
 
 import asyncio
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 import structlog
 
-from core.database import get_db
-from core.security import get_current_user
+from core.database import get_db, async_session_maker
+from core.security import get_current_user, get_current_user_ws
 from core.config import settings
 from models.meeting import Meeting
 from models.transcript import Transcript, TranscriptSegment
@@ -229,13 +229,16 @@ async def edit_transcript_segment(
 @router.websocket("/ws/{meeting_id}")
 async def websocket_realtime_transcription(
     websocket: WebSocket,
-    meeting_id: int,
-    db: AsyncSession = Depends(get_db)
+    meeting_id: str,
+    token: str = Query(..., description="Token JWT para autenticación"),
 ):
     """
     WebSocket para transcripción en tiempo real.
     
     El cliente envía chunks de audio y recibe transcripciones en tiempo real.
+    
+    Requiere autenticación mediante token JWT en query parameter.
+    Solo el usuario propietario de la reunión puede conectarse.
     
     Protocolo:
     - Cliente envía: bytes de audio (PCM 16-bit, 16kHz, mono)
@@ -251,9 +254,48 @@ async def websocket_realtime_transcription(
         "confidence": 0.95
     }
     """
+    # Validar autenticación
+    try:
+        current_user = get_current_user_ws(token)
+        user_id = int(current_user["user_id"])
+    except (ValueError, TypeError) as e:
+        logger.warning("Autenticación WebSocket fallida", meeting_id=meeting_id, error=str(e))
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    
+    # Validar meeting_id
+    try:
+        meeting_id_int = int(meeting_id)
+        if meeting_id_int <= 0 or meeting_id == "NaN":
+            raise ValueError("Meeting ID inválido")
+    except (ValueError, TypeError):
+        logger.warning("Meeting ID inválido", meeting_id=meeting_id, user_id=user_id)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    
+    # Verificar que el meeting pertenezca al usuario
+    async with async_session_maker() as db:
+        result = await db.execute(
+            select(Meeting).where(
+                Meeting.id == meeting_id_int,
+                Meeting.user_id == user_id
+            )
+        )
+        meeting = result.scalar_one_or_none()
+        
+        if not meeting:
+            logger.warning(
+                "Usuario intentó acceder a reunión inexistente o sin permisos",
+                meeting_id=meeting_id_int,
+                user_id=user_id
+            )
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    
+    # Autenticación y autorización exitosas, aceptar conexión
     await websocket.accept()
     
-    logger.info("WebSocket de transcripción conectado", meeting_id=meeting_id)
+    logger.info("WebSocket de transcripción conectado", meeting_id=meeting_id_int, user_id=user_id)
     
     try:
         # Inicializar transcriber en tiempo real
@@ -284,8 +326,8 @@ async def websocket_realtime_transcription(
                 })
                 
     except WebSocketDisconnect:
-        logger.info("WebSocket de transcripción desconectado", meeting_id=meeting_id)
+        logger.info("WebSocket de transcripción desconectado", meeting_id=meeting_id_int)
     except Exception as e:
-        logger.error("Error en WebSocket de transcripción", error=str(e))
+        logger.error("Error en WebSocket de transcripción", error=str(e), meeting_id=meeting_id_int)
         await websocket.close(code=1011, reason=str(e))
 

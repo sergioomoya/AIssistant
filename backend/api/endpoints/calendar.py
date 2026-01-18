@@ -13,7 +13,6 @@ import structlog
 from core.database import get_db
 from core.security import get_current_user
 from core.config import settings
-from models.user import User
 from features.calendar.google_calendar import get_google_calendar_service
 from features.calendar.microsoft_calendar import get_microsoft_calendar_service
 from features.calendar.calendar_sync import get_calendar_sync_service
@@ -57,12 +56,56 @@ class CalendarSyncResponse(BaseModel):
     errors: list
 
 
+class ProviderInfo(BaseModel):
+    """Información de un proveedor de calendario."""
+    id: str
+    name: str
+    icon: str
+    enabled: bool
+    supports_multiple_accounts: bool = True
+    requires_manual_setup: bool = False
+
 class AvailableProvidersResponse(BaseModel):
     """Proveedores de calendario disponibles."""
-    providers: list
+    providers: list[ProviderInfo]
 
 
 # ========== Endpoints ==========
+
+@router.get("/debug/oauth-config")
+async def get_oauth_debug_info(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Endpoint de depuración para verificar la configuración de OAuth.
+    
+    Muestra información útil para diagnosticar problemas de redirect_uri_mismatch.
+    """
+    from backend.core.config import settings
+    
+    google_service = get_google_calendar_service()
+    redirect_uri = "http://localhost:3000/settings/calendar/callback"
+    
+    debug_info = {
+        "google": {
+            "configured": google_service.is_configured,
+            "client_id": google_service.client_id[:20] + "..." if google_service.client_id else None,
+            "client_id_full": google_service.client_id if google_service.client_id else None,
+            "client_secret_set": bool(google_service.client_secret),
+            "expected_redirect_uri": redirect_uri,
+            "auth_url_example": google_service.get_authorization_url(redirect_uri, state="test") if google_service.is_configured else None,
+        },
+        "instructions": {
+            "step_1": "Verifica que el Client ID en Google Cloud Console coincida con el mostrado arriba",
+            "step_2": f"Añade este redirect_uri exacto en Google Cloud Console: {redirect_uri}",
+            "step_3": "Asegúrate de que NO tenga trailing slash ni espacios",
+            "step_4": "Espera 2-5 minutos después de guardar en Google Cloud Console",
+            "step_5": "Reinicia los servicios: docker-compose restart backend frontend",
+        }
+    }
+    
+    return debug_info
+
 
 @router.get("/providers", response_model=AvailableProvidersResponse)
 async def get_available_providers():
@@ -70,26 +113,65 @@ async def get_available_providers():
     Obtener proveedores de calendario disponibles.
     
     Solo devuelve los proveedores que están configurados correctamente.
+    Soporta múltiples cuentas del mismo proveedor.
     """
     providers = []
     
+    # Google Calendar - siempre disponible si está configurado
     google_service = get_google_calendar_service()
     if google_service.is_configured:
-        providers.append({
-            "id": "google",
-            "name": "Google Calendar",
-            "icon": "google",
-            "enabled": True,
-        })
+        providers.append(ProviderInfo(
+            id="google",
+            name="Google Calendar",
+            icon="google",
+            enabled=True,
+            supports_multiple_accounts=True,  # Permite múltiples cuentas
+            requires_manual_setup=False
+        ))
     
+    # Microsoft Outlook - Personal y Empresarial
     microsoft_service = get_microsoft_calendar_service()
     if microsoft_service.is_configured:
-        providers.append({
-            "id": "microsoft",
-            "name": "Outlook Calendar",
-            "icon": "microsoft",
-            "enabled": True,
-        })
+        # Outlook Personal (cuentas Microsoft personales)
+        providers.append(ProviderInfo(
+            id="outlook_personal",
+            name="Outlook Personal",
+            icon="microsoft",
+            enabled=True,
+            supports_multiple_accounts=True,  # Permite múltiples cuentas personales
+            requires_manual_setup=False
+        ))
+        
+        # Outlook Empresarial (Office 365 / Azure AD)
+        providers.append(ProviderInfo(
+            id="outlook_business",
+            name="Outlook Empresarial",
+            icon="microsoft",
+            enabled=True,
+            supports_multiple_accounts=True,  # Permite múltiples cuentas empresariales
+            requires_manual_setup=False
+        ))
+    
+    # Apple Calendar - disponible sin configuración adicional (usando CalDAV)
+    # Nota: Requiere configuración manual del usuario
+    providers.append(ProviderInfo(
+        id="apple",
+        name="Apple Calendar",
+        icon="apple",
+        enabled=True,
+        supports_multiple_accounts=True,
+        requires_manual_setup=True  # Requiere configuración manual
+    ))
+    
+    # CalDAV genérico - para otros proveedores (Nextcloud, ownCloud, etc.)
+    providers.append(ProviderInfo(
+        id="caldav",
+        name="CalDAV (Genérico)",
+        icon="calendar",
+        enabled=True,
+        supports_multiple_accounts=True,
+        requires_manual_setup=True  # Requiere configuración manual
+    ))
     
     return {"providers": providers}
 
@@ -98,7 +180,7 @@ async def get_available_providers():
 async def get_calendar_auth_url(
     provider: str,
     redirect_uri: str = Query(..., description="URI de redirección después de autorización"),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Obtener URL de autorización para conectar un calendario.
@@ -116,27 +198,68 @@ async def get_calendar_auth_url(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Google Calendar no está configurado en el servidor"
             )
-        auth_url = service.get_authorization_url(redirect_uri, state=str(current_user.id))
+        auth_url = service.get_authorization_url(redirect_uri, state=str(current_user["user_id"]))
         
     elif provider == "microsoft":
+        # Mantener compatibilidad con el proveedor antiguo
         service = get_microsoft_calendar_service()
         if not service.is_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Microsoft Calendar no está configurado en el servidor"
             )
-        auth_url = service.get_authorization_url(redirect_uri, state=str(current_user.id))
+        auth_url = service.get_authorization_url(redirect_uri, state=str(current_user["user_id"]))
         
+    elif provider == "outlook_personal":
+        # Outlook Personal - usa tenant "consumers" para solo cuentas personales
+        service = get_microsoft_calendar_service()
+        if not service.is_configured:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Microsoft Calendar no está configurado en el servidor"
+            )
+        auth_url = service.get_authorization_url(
+            redirect_uri, 
+            state=str(current_user["user_id"]),
+            tenant="consumers"  # Solo cuentas personales de Microsoft
+        )
+        
+    elif provider == "outlook_business":
+        # Outlook Empresarial - usa tenant "organizations" para solo cuentas empresariales
+        service = get_microsoft_calendar_service()
+        if not service.is_configured:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Microsoft Calendar no está configurado en el servidor"
+            )
+        auth_url = service.get_authorization_url(
+            redirect_uri, 
+            state=str(current_user["user_id"]),
+            tenant="organizations"  # Solo cuentas empresariales (Office 365 / Azure AD)
+        )
+        
+    elif provider == "apple":
+        # Apple Calendar usa CalDAV - requiere configuración manual
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Apple Calendar requiere configuración manual mediante CalDAV. Usa el proveedor 'caldav'."
+        )
+    elif provider == "caldav":
+        # CalDAV requiere configuración manual
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="CalDAV requiere configuración manual. Esta funcionalidad estará disponible próximamente."
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Proveedor no soportado: {provider}. Usa 'google' o 'microsoft'"
+            detail=f"Proveedor no soportado: {provider}. Usa 'google', 'microsoft', 'outlook_personal' o 'outlook_business'"
         )
     
     logger.info(
         "URL de autorización de calendario generada",
         provider=provider,
-        user_id=current_user.id
+        user_id=current_user["user_id"]
     )
     
     return {"auth_url": auth_url, "provider": provider}
@@ -146,7 +269,7 @@ async def get_calendar_auth_url(
 async def calendar_oauth_callback(
     data: CalendarCallbackRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Callback de OAuth para calendario.
@@ -161,19 +284,38 @@ async def calendar_oauth_callback(
             tokens = await service.exchange_code_for_tokens(data.code, data.redirect_uri)
             
         elif data.provider == "microsoft":
+            # Mantener compatibilidad con el proveedor antiguo
             service = get_microsoft_calendar_service()
             tokens = await service.exchange_code_for_tokens(data.code, data.redirect_uri)
+            
+        elif data.provider == "outlook_personal":
+            # Outlook Personal - usa tenant "consumers"
+            service = get_microsoft_calendar_service()
+            tokens = await service.exchange_code_for_tokens(
+                data.code, 
+                data.redirect_uri,
+                tenant="consumers"
+            )
+            
+        elif data.provider == "outlook_business":
+            # Outlook Empresarial - usa tenant "organizations"
+            service = get_microsoft_calendar_service()
+            tokens = await service.exchange_code_for_tokens(
+                data.code, 
+                data.redirect_uri,
+                tenant="organizations"
+            )
             
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Proveedor no soportado: {data.provider}"
+                detail=f"Proveedor no soportado: {data.provider}. Usa 'google', 'microsoft', 'outlook_personal' o 'outlook_business'"
             )
         
         # Guardar conexión
         connection = await sync_service.save_calendar_connection(
             db=db,
-            user_id=current_user.id,
+            user_id=int(current_user["user_id"]),
             provider=data.provider,
             tokens=tokens
         )
@@ -181,7 +323,7 @@ async def calendar_oauth_callback(
         logger.info(
             "Calendario conectado exitosamente",
             provider=data.provider,
-            user_id=current_user.id,
+            user_id=current_user["user_id"],
             email=tokens.get("email")
         )
         
@@ -210,13 +352,13 @@ async def calendar_oauth_callback(
 @router.get("/connections", response_model=list[CalendarConnectionResponse])
 async def get_calendar_connections(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Obtener todas las conexiones de calendario del usuario.
     """
     sync_service = get_calendar_sync_service()
-    connections = await sync_service.get_user_connections(db, current_user.id)
+    connections = await sync_service.get_user_connections(db, int(current_user["user_id"]))
     
     return [
         CalendarConnectionResponse(
@@ -236,7 +378,7 @@ async def get_calendar_connections(
 async def disconnect_calendar(
     connection_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Desconectar un calendario.
@@ -245,7 +387,7 @@ async def disconnect_calendar(
         connection_id: ID de la conexión a eliminar
     """
     sync_service = get_calendar_sync_service()
-    success = await sync_service.disconnect_calendar(db, current_user.id, connection_id)
+    success = await sync_service.disconnect_calendar(db, int(current_user["user_id"]), connection_id)
     
     if not success:
         raise HTTPException(
@@ -260,7 +402,7 @@ async def disconnect_calendar(
 async def sync_calendars(
     connection_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Sincronizar eventos de calendario(s).
@@ -276,7 +418,7 @@ async def sync_calendars(
     try:
         stats = await sync_service.sync_calendar_events(
             db=db,
-            user_id=current_user.id,
+            user_id=int(current_user["user_id"]),
             connection_id=connection_id
         )
         
@@ -285,7 +427,7 @@ async def sync_calendars(
     except Exception as e:
         logger.error(
             "Error sincronizando calendarios",
-            user_id=current_user.id,
+            user_id=current_user["user_id"],
             error=str(e)
         )
         raise HTTPException(
@@ -299,7 +441,7 @@ async def get_available_calendars(
     provider: str,
     connection_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Obtener lista de calendarios disponibles de un proveedor.
@@ -315,7 +457,7 @@ async def get_available_calendars(
         select(CalendarConnection).where(
             and_(
                 CalendarConnection.id == connection_id,
-                CalendarConnection.user_id == current_user.id,
+                CalendarConnection.user_id == int(current_user["user_id"]),
                 CalendarConnection.provider == provider,
                 CalendarConnection.is_active == True
             )
@@ -354,7 +496,7 @@ async def set_active_calendar(
     connection_id: int,
     calendar_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Establecer el calendario activo para una conexión.
@@ -370,7 +512,7 @@ async def set_active_calendar(
         select(CalendarConnection).where(
             and_(
                 CalendarConnection.id == connection_id,
-                CalendarConnection.user_id == current_user.id,
+                CalendarConnection.user_id == int(current_user["user_id"]),
                 CalendarConnection.is_active == True
             )
         )

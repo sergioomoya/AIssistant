@@ -290,7 +290,7 @@ class CalendarSyncService:
                         calendar_id=connection.calendar_id,
                         days_ahead=settings.CALENDAR_SYNC_DAYS_AHEAD,
                     )
-                elif connection.provider == "microsoft":
+                elif connection.provider in ["microsoft", "outlook_personal", "outlook_business"]:
                     events = await self.microsoft_service.get_upcoming_events(
                         access_token=access_token,
                         calendar_id=connection.calendar_id if connection.calendar_id != "primary" else None,

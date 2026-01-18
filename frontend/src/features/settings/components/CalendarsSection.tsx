@@ -90,15 +90,16 @@ export function CalendarsSection({
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {providers?.providers?.map((provider) => {
-            const isConnected = connections.some(
+            // Contar conexiones activas de este proveedor
+            const connectedCount = connections.filter(
               (c) => c.provider === provider.id && c.is_active
-            )
+            ).length
             
             return (
               <ProviderButton
                 key={provider.id}
                 provider={provider}
-                isConnected={isConnected}
+                connectedCount={connectedCount}
                 isConnecting={isConnecting}
                 onConnect={() => onConnect(provider.id)}
               />
@@ -197,26 +198,31 @@ function EmptyCalendarsState() {
 
 function ProviderButton({
   provider,
-  isConnected,
+  connectedCount,
   isConnecting,
   onConnect,
 }: {
   provider: { id: string; name: string }
-  isConnected: boolean
+  connectedCount: number
   isConnecting: boolean
   onConnect: () => void
 }) {
-  const providerType = provider.id === 'google' ? 'google' : 'outlook'
+  // Mapear provider.id a providerType para los iconos
+  const providerType = 
+    provider.id === 'google' ? 'google' : 
+    (provider.id === 'microsoft' || provider.id === 'outlook_personal' || provider.id === 'outlook_business') ? 'outlook' : 
+    provider.id === 'apple' ? 'apple' :
+    provider.id === 'caldav' ? 'calendar' :
+    'calendar' as 'google' | 'outlook' | 'apple' | 'calendar'
   
   return (
     <button
       onClick={onConnect}
-      disabled={isConnected || isConnecting}
+      disabled={isConnecting}
       className={cn(
         "flex items-center gap-3 p-4 rounded-xl border-2 transition-all",
-        isConnected
-          ? "border-surface-700 bg-surface-800/30 opacity-60 cursor-not-allowed"
-          : "border-surface-700 hover:border-primary-500 hover:bg-surface-800"
+        "border-surface-700 hover:border-primary-500 hover:bg-surface-800",
+        isConnecting && "opacity-60 cursor-not-allowed"
       )}
     >
       <ProviderIconContainer provider={providerType}>
@@ -225,14 +231,17 @@ function ProviderButton({
       
       <div className="flex-1 text-left">
         <span className="font-medium text-white">{provider.name}</span>
-        {isConnected && (
-          <p className="text-xs text-surface-400">Ya conectado</p>
+        {connectedCount > 0 && (
+          <p className="text-xs text-surface-400">
+            {connectedCount} {connectedCount === 1 ? 'cuenta conectada' : 'cuentas conectadas'}
+          </p>
+        )}
+        {connectedCount === 0 && (
+          <p className="text-xs text-surface-500">Conectar nueva cuenta</p>
         )}
       </div>
       
-      {!isConnected && (
-        <ExternalLink className="w-4 h-4 text-surface-400" />
-      )}
+      <ExternalLink className="w-4 h-4 text-surface-400" />
     </button>
   )
 }
