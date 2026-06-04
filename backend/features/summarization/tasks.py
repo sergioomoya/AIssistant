@@ -120,9 +120,9 @@ def generate_summary_task(self, transcript_id: int, user_id: int, meeting_type: 
                         meeting.sentiment_details = sentiment
                     
                     # Actualizar metadata
-                    if not meeting.metadata:
-                        meeting.metadata = {}
-                    meeting.metadata.update({
+                    if not meeting.meta_data:
+                        meeting.meta_data = {}
+                    meeting.meta_data.update({
                         "summary_generated": True,
                         "summary_generated_at": str(asyncio.get_event_loop().time()),
                         "meeting_type": final_meeting_type,

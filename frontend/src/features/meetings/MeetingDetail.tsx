@@ -15,6 +15,7 @@ import {
   TranscriptTab,
   ActionsTab,
   AIChatPanel,
+  AudioPlayer,
 } from './components'
 
 export default function MeetingDetail() {
@@ -75,6 +76,11 @@ export default function MeetingDetail() {
         isGenerating={generateSummary.isPending}
         canGenerateSummary={canGenerateSummary}
       />
+      
+      {/* Reproductor de audio premium */}
+      {meeting.has_audio && (
+        <AudioPlayer meetingId={meeting.id} />
+      )}
       
       {/* Tabs */}
       <MeetingTabs

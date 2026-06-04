@@ -41,6 +41,20 @@ export function useTranscriptionSocket({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttemptsRef = useRef(0)
   
+  // Guardar callbacks en refs para mantener estable la identidad de 'connect'
+  const onTranscriptRef = useRef(onTranscript)
+  const onErrorRef = useRef(onError)
+  const onConnectRef = useRef(onConnect)
+  const onDisconnectRef = useRef(onDisconnect)
+
+  // Mantener actualizadas las referencias
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript
+    onErrorRef.current = onError
+    onConnectRef.current = onConnect
+    onDisconnectRef.current = onDisconnect
+  }, [onTranscript, onError, onConnect, onDisconnect])
+
   const MAX_RECONNECT_ATTEMPTS = 5
   const RECONNECT_DELAY = 2000
   
@@ -48,7 +62,7 @@ export function useTranscriptionSocket({
     // Validar meetingId antes de conectar
     if (!meetingId || isNaN(meetingId) || meetingId <= 0) {
       console.warn('Meeting ID inválido, no se puede conectar WebSocket', meetingId)
-      onError?.('ID de reunión inválido')
+      onErrorRef.current?.('ID de reunión inválido')
       return
     }
     
@@ -71,13 +85,13 @@ export function useTranscriptionSocket({
       socket.onopen = () => {
         setIsConnected(true)
         reconnectAttemptsRef.current = 0
-        onConnect?.()
+        onConnectRef.current?.()
       }
       
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as TranscriptionData
-          onTranscript(data)
+          onTranscriptRef.current(data)
         } catch (err) {
           console.error('Error parsing transcription data:', err)
         }
@@ -85,12 +99,12 @@ export function useTranscriptionSocket({
       
       socket.onerror = (event) => {
         console.error('WebSocket error:', event)
-        onError?.('Error de conexión WebSocket')
+        onErrorRef.current?.('Error de conexión WebSocket')
       }
       
       socket.onclose = (event) => {
         setIsConnected(false)
-        onDisconnect?.()
+        onDisconnectRef.current?.()
         
         // Intentar reconectar si no fue un cierre limpio
         if (!event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
@@ -103,9 +117,9 @@ export function useTranscriptionSocket({
       
     } catch (err) {
       console.error('Error creating WebSocket:', err)
-      onError?.('No se pudo crear la conexión WebSocket')
+      onErrorRef.current?.('No se pudo crear la conexión WebSocket')
     }
-  }, [meetingId, onTranscript, onError, onConnect, onDisconnect])
+  }, [meetingId])
   
   const disconnect = useCallback(() => {
     // Cancelar reconexión pendiente

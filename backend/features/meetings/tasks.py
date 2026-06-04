@@ -34,7 +34,18 @@ class DatabaseTask(Task):
     def after_return(self, *args, **kwargs):
         """Cerrar sesión después de la tarea."""
         if self._db:
-            self._db.close()
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(self._db.close())
+                else:
+                    loop.run_until_complete(self._db.close())
+            except RuntimeError:
+                try:
+                    asyncio.run(self._db.close())
+                except:
+                    pass
             self._db = None
 
 
@@ -100,13 +111,14 @@ def process_meeting_task(self, meeting_id: int):
                 publish_task_update_sync(task_id, "transcribing", 0.2, "Transcribiendo audio...")
                 logger.info("Transcribiendo audio", meeting_id=meeting_id)
                 
-                # Llamar a tarea de transcripción
-                transcribe_result = transcribe_audio_task.delay(
+                # Llamar a tarea de transcripción directamente para evitar deadlock en ejecución monohilo
+                transcribe_result = transcribe_audio_task(
+                    self,
                     meeting.audio_file_path,
                     meeting_id,
                     meeting.user_id,
                     user_config
-                ).get(timeout=3600)  # 1 hora timeout
+                )
                 
                 if transcribe_result.get("error"):
                     raise Exception(f"Error en transcripción: {transcribe_result['error']}")
@@ -118,10 +130,12 @@ def process_meeting_task(self, meeting_id: int):
                     publish_task_update_sync(task_id, "summarizing", 0.8, "Generando resumen con IA...")
                     logger.info("Generando resumen", meeting_id=meeting_id, transcript_id=transcript_id)
                     
-                    summary_result = generate_summary_task.delay(
+                    # Llamar a tarea de resumen directamente para evitar deadlock
+                    summary_result = generate_summary_task(
+                        self,
                         transcript_id,
                         meeting.user_id
-                    ).get(timeout=600)  # 10 minutos timeout
+                    )
                     
                     if summary_result.get("error"):
                         logger.warning("Error generando resumen", error=summary_result.get("error"))
@@ -197,9 +211,9 @@ def update_meeting_status_task(meeting_id: int, status: str, progress: float = N
                 meeting.status = status
                 if progress is not None:
                     # Guardar progreso en metadata si existe
-                    if not meeting.metadata:
-                        meeting.metadata = {}
-                    meeting.metadata["progress"] = progress
+                    if not meeting.meta_data:
+                        meeting.meta_data = {}
+                    meeting.meta_data["progress"] = progress
                 
                 await db.commit()
                 logger.info("Estado actualizado", meeting_id=meeting_id, status=status, progress=progress)

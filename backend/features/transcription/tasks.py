@@ -13,7 +13,7 @@ import os
 
 from core.celery_app import celery_app
 from core.database import async_session_maker
-from models.transcript import Transcript
+from models.transcript import Transcript, TranscriptSegment
 from models.meeting import Meeting
 
 logger = structlog.get_logger()
@@ -139,17 +139,31 @@ def transcribe_audio_task(self, audio_file_path: str, meeting_id: int, user_id: 
                 
                 # 5. Crear transcripción en BD
                 
+                # Crear objetos TranscriptSegment reales
+                segment_objects = []
+                for i, seg in enumerate(combined_segments):
+                    segment_objects.append(
+                        TranscriptSegment(
+                            text=seg["text"],
+                            start_time=seg["start"],
+                            end_time=seg["end"],
+                            speaker_id=seg["speaker"],
+                            speaker_name="Tú" if seg["speaker"] in ["Tú", "user"] else seg["speaker"],
+                            is_user=seg["speaker"] in ["Tú", "user"],
+                            confidence=seg.get("confidence", 1.0),
+                            sequence_number=i + 1
+                        )
+                    )
+                
                 new_transcript = Transcript(
                     meeting_id=meeting_id,
-                    user_id=user_id,
-                    text=transcript_text,
-                    language=transcription_result.get("language", "es"),
-                    segments=combined_segments,
-                    metadata={
-                        "duration": transcription_result.get("duration", 0),
-                        "model": transcription_result.get("model", "unknown"),
-                        "speakers": diarization_service.get_speaker_count(diarization_result),
-                    }
+                    full_text=transcript_text,
+                    detected_language=transcription_result.get("language", "es"),
+                    duration_seconds=int(transcription_result.get("duration", 0)),
+                    transcription_model=transcription_result.get("model", "unknown"),
+                    model_version=transcription_result.get("model_version"),
+                    average_confidence=sum([s.confidence for s in segment_objects]) / len(segment_objects) if segment_objects else 1.0,
+                    segments=segment_objects
                 )
                 
                 db.add(new_transcript)

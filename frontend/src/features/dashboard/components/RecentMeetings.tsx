@@ -91,10 +91,16 @@ function MeetingItem({ meeting }: { meeting: RecentMeeting }) {
         <h3 className="font-medium text-white truncate group-hover:text-primary-400 transition-colors">
           {meeting.title}
         </h3>
-        <p className="text-sm text-surface-400">
-          {formatRelativeTime(meeting.created_at)}
-          {meeting.duration_seconds && ` · ${formatDuration(meeting.duration_seconds)}`}
-        </p>
+        <div className="text-sm text-surface-400 flex items-center flex-wrap gap-1.5">
+          <span>{formatRelativeTime(meeting.created_at)}</span>
+          {meeting.duration_seconds && <span>· {formatDuration(meeting.duration_seconds)}</span>}
+          {meeting.has_audio && (
+            <span className="inline-flex items-center gap-0.5 text-xs text-primary-400 font-medium px-1.5 py-0.5 bg-primary-500/10 rounded-full">
+              <Mic className="w-3 h-3 text-primary-400" />
+              Grabado
+            </span>
+          )}
+        </div>
       </div>
       
       <ArrowRight className="w-5 h-5 text-surface-500 group-hover:text-primary-400 transition-colors" />

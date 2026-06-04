@@ -55,6 +55,13 @@ async def lifespan(app: FastAPI):
             mode=settings.DEPLOYMENT_MODE,
             whisper_model=settings.WHISPER_MODEL_SIZE
         )
+        try:
+            from api.endpoints.transcription import get_whisper_engine
+            logger.info("Pre-cargando modelo Whisper en memoria...")
+            await get_whisper_engine()
+            logger.info("Modelo Whisper cargado e inicializado exitosamente en memoria")
+        except Exception as e:
+            logger.error("Error al pre-cargar el modelo Whisper en el arranque", error=str(e))
     
     yield
     

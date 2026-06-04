@@ -90,7 +90,7 @@ class LiteLLMService:
         elif settings.LLM_MODEL_NAME:
             base_model = settings.LLM_MODEL_NAME
         elif self.deployment_mode == "local":
-            base_model = "deepseek-r1"
+            base_model = "gemma4"
         elif self.deployment_mode == "cloud":
             base_model = "gpt-5.2"
         else:
@@ -144,6 +144,7 @@ class LiteLLMService:
             # ==========================================
             # Modelos locales (Ollama)
             # ==========================================
+            'gemma4': 'ollama/gemma4',
             'llama4': 'ollama/llama4',
             'llama3.2': 'ollama/llama3.2',
             'qwen2.5': 'ollama/qwen2.5',
@@ -176,11 +177,11 @@ class LiteLLMService:
         
         # Definir fallbacks según modo de despliegue
         if self.deployment_mode == "local":
-            fallbacks = ["llama3.2", "mistral", "phi3"]
+            fallbacks = ["gemma4", "deepseek-r1", "llama3.2", "phi4"]
         elif self.deployment_mode == "cloud":
             fallbacks = ["gpt-4o-mini", "claude-3-5-sonnet", "gemini-1.5-flash"]
         else:
-            fallbacks = ["gpt-4o-mini", "deepseek-r1", "llama3.2"]
+            fallbacks = ["gpt-4o-mini", "gemma4", "deepseek-r1", "llama3.2"]
         
         # Validar y obtener mejor modelo disponible
         best_model = await get_best_available_model(

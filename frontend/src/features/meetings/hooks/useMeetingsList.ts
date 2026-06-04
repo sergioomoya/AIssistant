@@ -17,6 +17,7 @@ export interface Meeting {
   status: string
   platform?: string
   sentiment?: string
+  has_audio?: boolean
   created_at: string
 }
 

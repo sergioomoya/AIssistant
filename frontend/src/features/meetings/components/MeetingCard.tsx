@@ -4,7 +4,7 @@
 
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Calendar, Clock, Users, Play, FileText, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, Users, Play, FileText, ChevronRight, Mic } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { formatDate, formatDuration, formatRelativeTime } from '@/utils/format'
 import type { Meeting } from '../hooks/useMeetingsList'
@@ -67,6 +67,12 @@ function MeetingInfo({ meeting }: { meeting: Meeting }) {
         <span className={cn("badge", STATUS_COLORS[meeting.status] || STATUS_COLORS.scheduled)}>
           {STATUS_LABELS[meeting.status] || meeting.status}
         </span>
+        {meeting.has_audio && (
+          <span className="badge bg-primary-500/10 text-primary-400 flex items-center gap-1.5">
+            <Mic className="w-3.5 h-3.5" />
+            Grabación
+          </span>
+        )}
       </div>
       
       <div className="flex items-center gap-4 text-sm text-surface-400">

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 interface UseAudioCaptureOptions {
   onAudioChunk: (chunk: ArrayBuffer, isUserAudio: boolean) => void
@@ -47,6 +47,14 @@ export function useAudioCapture({
   const systemProcessorRef = useRef<ScriptProcessorNode | null>(null)
   const audioLevelRef = useRef(0)
   
+  // Guardar callback en ref para que createAudioProcessor no dependa de su identidad
+  const onAudioChunkRef = useRef(onAudioChunk)
+  
+  // Mantener actualizado
+  useEffect(() => {
+    onAudioChunkRef.current = onAudioChunk
+  }, [onAudioChunk])
+
   /**
    * Crear procesador de audio para un stream
    */
@@ -56,7 +64,9 @@ export function useAudioCapture({
     isUserAudio: boolean
   ): ScriptProcessorNode => {
     const source = audioContext.createMediaStreamSource(stream)
-    const bufferSize = Math.floor(sampleRate * chunkDurationMs / 1000)
+    // createScriptProcessor requiere que bufferSize sea una potencia de dos entre 256 y 16384.
+    // Usamos 4096 por defecto para garantizar compatibilidad, baja latencia y un refresco fluido del nivel de audio.
+    const bufferSize = 4096
     const processor = audioContext.createScriptProcessor(bufferSize, channelCount, channelCount)
     
     processor.onaudioprocess = (event) => {
@@ -84,7 +94,7 @@ export function useAudioCapture({
         }
         
         // Enviar chunk con indicador de origen
-        onAudioChunk(int16Data.buffer, isUserAudio)
+        onAudioChunkRef.current(int16Data.buffer, isUserAudio)
       }
     }
     
@@ -93,7 +103,7 @@ export function useAudioCapture({
     processor.connect(audioContext.destination)
     
     return processor
-  }, [sampleRate, chunkDurationMs, channelCount, onAudioChunk])
+  }, [sampleRate, chunkDurationMs, channelCount])
   
   /**
    * Iniciar captura solo de micrófono
@@ -117,6 +127,9 @@ export function useAudioCapture({
       
       // Crear contexto de audio
       const audioContext = new AudioContext({ sampleRate })
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
       audioContextRef.current = audioContext
       
       // Crear procesador
@@ -165,6 +178,9 @@ export function useAudioCapture({
       
       // Crear contexto de audio
       const audioContext = new AudioContext({ sampleRate })
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
       audioContextRef.current = audioContext
       
       // Crear procesador (audio del sistema = NO es del usuario)
@@ -225,6 +241,9 @@ export function useAudioCapture({
       
       // Crear contexto de audio
       const audioContext = new AudioContext({ sampleRate })
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
       audioContextRef.current = audioContext
       
       // Crear procesadores separados

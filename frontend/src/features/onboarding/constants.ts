@@ -130,6 +130,7 @@ export const WHISPER_MODELS = [
 ]
 
 export const LOCAL_LLM_MODELS = [
+  { id: 'gemma4', name: 'Gemma 4', provider: 'Ollama', recommended: true, released: '2026-02' },
   { id: 'deepseek-r1', name: 'DeepSeek R1', provider: 'Ollama', recommended: true, released: '2025-01' },
   { id: 'llama4', name: 'LLaMA 4', provider: 'Ollama', released: '2025-04' },
   { id: 'llama3.2', name: 'LLaMA 3.2', provider: 'Ollama', released: '2024-09' },

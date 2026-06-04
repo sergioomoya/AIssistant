@@ -297,6 +297,13 @@ async def websocket_realtime_transcription(
     
     logger.info("WebSocket de transcripción conectado", meeting_id=meeting_id_int, user_id=user_id)
     
+    # Configurar archivo temporal PCM crudo para la grabación
+    import os
+    import aiofiles
+    temp_pcm_filename = f"live_{meeting_id_int}.raw"
+    temp_pcm_path = os.path.join(settings.AUDIO_TEMP_PATH, temp_pcm_filename)
+    os.makedirs(settings.AUDIO_TEMP_PATH, exist_ok=True)
+    
     try:
         # Inicializar transcriber en tiempo real
         whisper_engine = await get_whisper_engine()
@@ -307,6 +314,10 @@ async def websocket_realtime_transcription(
         while True:
             # Recibir chunk de audio
             data = await websocket.receive_bytes()
+            
+            # Escribir fragmento de audio a disco de forma asíncrona no bloqueante
+            async with aiofiles.open(temp_pcm_path, 'ab') as pcm_file:
+                await pcm_file.write(data)
             
             # Procesar audio
             result = await transcriber.process_chunk(data)

@@ -17,6 +17,7 @@ import Login from '@/features/auth/Login'
 import Register from '@/features/auth/Register'
 import GoogleCallback from '@/features/auth/GoogleCallback'
 import Onboarding from '@/features/onboarding/Onboarding'
+import CalendarPage from '@/features/calendar/CalendarPage'
 
 /**
  * Componente de ruta protegida
@@ -94,6 +95,7 @@ export default function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/meetings" element={<MeetingsList />} />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/meetings/new" element={<LiveMeeting />} />
         <Route path="/meetings/:id" element={<MeetingDetail />} />
         <Route path="/meetings/:id/live" element={<LiveMeeting />} />

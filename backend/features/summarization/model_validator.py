@@ -43,6 +43,7 @@ MODEL_REGISTRY = {
     # ==========================================
     # Modelos locales (Ollama)
     # ==========================================
+    "gemma4": {"provider": "ollama", "is_local": True, "size": "~5.5GB", "released": "2026-02"},
     "deepseek-r1": {"provider": "ollama", "is_local": True, "size": "~8GB", "released": "2025-01"},
     "llama4": {"provider": "ollama", "is_local": True, "size": "~26GB", "released": "2025-04"},
     "llama3.2": {"provider": "ollama", "is_local": True, "size": "~4GB", "released": "2024-09"},

@@ -54,7 +54,7 @@ class Transcript(Base):
     )
     
     # Relaciones
-    meeting = relationship("Meeting", back_populates="transcript")
+    meeting = relationship("Meeting", back_populates="transcript", foreign_keys="[Meeting.transcript_id]")
     segments = relationship(
         "TranscriptSegment",
         back_populates="transcript",

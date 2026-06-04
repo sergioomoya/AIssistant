@@ -117,40 +117,38 @@ async def get_available_providers():
     """
     providers = []
     
-    # Google Calendar - siempre disponible si está configurado
+    # Google Calendar - disponible siempre
     google_service = get_google_calendar_service()
-    if google_service.is_configured:
-        providers.append(ProviderInfo(
-            id="google",
-            name="Google Calendar",
-            icon="google",
-            enabled=True,
-            supports_multiple_accounts=True,  # Permite múltiples cuentas
-            requires_manual_setup=False
-        ))
+    providers.append(ProviderInfo(
+        id="google",
+        name="Google Calendar",
+        icon="google",
+        enabled=google_service.is_configured,
+        supports_multiple_accounts=True,  # Permite múltiples cuentas
+        requires_manual_setup=False
+    ))
     
-    # Microsoft Outlook - Personal y Empresarial
+    # Microsoft Outlook - Personal y Empresarial (disponibles siempre)
     microsoft_service = get_microsoft_calendar_service()
-    if microsoft_service.is_configured:
-        # Outlook Personal (cuentas Microsoft personales)
-        providers.append(ProviderInfo(
-            id="outlook_personal",
-            name="Outlook Personal",
-            icon="microsoft",
-            enabled=True,
-            supports_multiple_accounts=True,  # Permite múltiples cuentas personales
-            requires_manual_setup=False
-        ))
-        
-        # Outlook Empresarial (Office 365 / Azure AD)
-        providers.append(ProviderInfo(
-            id="outlook_business",
-            name="Outlook Empresarial",
-            icon="microsoft",
-            enabled=True,
-            supports_multiple_accounts=True,  # Permite múltiples cuentas empresariales
-            requires_manual_setup=False
-        ))
+    # Outlook Personal (cuentas Microsoft personales)
+    providers.append(ProviderInfo(
+        id="outlook_personal",
+        name="Outlook Personal",
+        icon="microsoft",
+        enabled=microsoft_service.is_configured,
+        supports_multiple_accounts=True,  # Permite múltiples cuentas personales
+        requires_manual_setup=False
+    ))
+    
+    # Outlook Empresarial (Office 365 / Azure AD)
+    providers.append(ProviderInfo(
+        id="outlook_business",
+        name="Outlook Empresarial",
+        icon="microsoft",
+        enabled=microsoft_service.is_configured,
+        supports_multiple_accounts=True,  # Permite múltiples cuentas empresariales
+        requires_manual_setup=False
+    ))
     
     # Apple Calendar - disponible sin configuración adicional (usando CalDAV)
     # Nota: Requiere configuración manual del usuario
@@ -196,7 +194,7 @@ async def get_calendar_auth_url(
         if not service.is_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Google Calendar no está configurado en el servidor"
+                detail="Google Calendar no está configurado. Por favor, define GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en tu archivo .env del backend."
             )
         auth_url = service.get_authorization_url(redirect_uri, state=str(current_user["user_id"]))
         
@@ -206,7 +204,7 @@ async def get_calendar_auth_url(
         if not service.is_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Microsoft Calendar no está configurado en el servidor"
+                detail="Microsoft Calendar no está configurado. Por favor, define MICROSOFT_CLIENT_ID y MICROSOFT_CLIENT_SECRET en tu archivo .env del backend."
             )
         auth_url = service.get_authorization_url(redirect_uri, state=str(current_user["user_id"]))
         
@@ -216,7 +214,7 @@ async def get_calendar_auth_url(
         if not service.is_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Microsoft Calendar no está configurado en el servidor"
+                detail="Outlook Personal no está configurado. Por favor, define MICROSOFT_CLIENT_ID y MICROSOFT_CLIENT_SECRET en tu archivo .env del backend."
             )
         auth_url = service.get_authorization_url(
             redirect_uri, 
@@ -230,7 +228,7 @@ async def get_calendar_auth_url(
         if not service.is_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Microsoft Calendar no está configurado en el servidor"
+                detail="Outlook Empresarial no está configurado. Por favor, define MICROSOFT_CLIENT_ID y MICROSOFT_CLIENT_SECRET en tu archivo .env del backend."
             )
         auth_url = service.get_authorization_url(
             redirect_uri, 

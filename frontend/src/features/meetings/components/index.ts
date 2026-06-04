@@ -16,6 +16,7 @@ export { SummaryTab } from './SummaryTab'
 export { TranscriptTab } from './TranscriptTab'
 export { ActionsTab } from './ActionsTab'
 export { AIChatPanel } from './AIChatPanel'
+export { AudioPlayer } from './AudioPlayer'
 
 // MeetingsList components
 export { MeetingsHeader } from './MeetingsHeader'

@@ -31,7 +31,6 @@ export function useWaveform(options: UseWaveformOptions = {}) {
       cursorColor: '#a5b4fc',
       barWidth: 2,
       barRadius: 3,
-      responsive: true,
       height: 100,
       normalize: true,
       backend: 'WebAudio',

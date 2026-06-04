@@ -9,13 +9,15 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  History,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useMeetingStore } from '@/stores/meetingStore'
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/meetings', icon: Calendar, label: 'Reuniones' },
+  { path: '/calendar', icon: Calendar, label: 'Calendario' },
+  { path: '/meetings', icon: History, label: 'Reuniones' },
   { path: '/settings', icon: Settings, label: 'Configuración' },
 ]
 

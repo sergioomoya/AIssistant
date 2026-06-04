@@ -83,7 +83,7 @@ class Meeting(Base):
     audio_file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     transcript_id: Mapped[Optional[int]] = mapped_column(ForeignKey("transcripts.id"), nullable=True)
     task_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # ID de tarea Celery
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    meta_data: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -104,13 +104,20 @@ class Meeting(Base):
         "Transcript",
         back_populates="meeting",
         uselist=False,
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        foreign_keys="[Meeting.transcript_id]",
+        single_parent=True
     )
     action_items = relationship(
         "ActionItem",
         back_populates="meeting",
         cascade="all, delete-orphan"
     )
+    
+    @property
+    def has_audio(self) -> bool:
+        """Indica si la reunión tiene un archivo de audio grabado asociado."""
+        return self.audio_file_path is not None
     
     def __repr__(self) -> str:
         return f"<Meeting(id={self.id}, title={self.title[:30]}...)>"

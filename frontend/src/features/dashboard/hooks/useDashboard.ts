@@ -24,6 +24,7 @@ export interface RecentMeeting {
   duration_seconds?: number
   sentiment?: string
   status: string
+  has_audio?: boolean
 }
 
 export function useDashboard() {

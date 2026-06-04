@@ -62,7 +62,7 @@ export function useLiveMeeting({ meetingId: initialMeetingId }: UseLiveMeetingPr
       }
     },
     onError: (error) => {
-      toast.error('Error de conexión: ' + error)
+      console.warn('Error de conexión WebSocket (se reintentará en segundo plano):', error)
     },
   })
   
@@ -117,6 +117,24 @@ export function useLiveMeeting({ meetingId: initialMeetingId }: UseLiveMeetingPr
     }
   }, [isCapturing, getAudioLevel, setAudioLevel])
   
+  // Reconectar automáticamente si se está grabando y se pierde la conexión con el servidor
+  useEffect(() => {
+    let reconnectInterval: NodeJS.Timeout | null = null
+    
+    if (isRecording && !isConnected && meetingId) {
+      reconnectInterval = setInterval(() => {
+        console.log('Intentando reconectar WebSocket desde useLiveMeeting...')
+        connect()
+      }, 5000)
+    }
+    
+    return () => {
+      if (reconnectInterval) {
+        clearInterval(reconnectInterval)
+      }
+    }
+  }, [isRecording, isConnected, meetingId, connect])
+
   // Cleanup al desmontar
   useEffect(() => {
     return () => {
@@ -170,6 +188,12 @@ export function useLiveMeeting({ meetingId: initialMeetingId }: UseLiveMeetingPr
     try {
       stopCapture()
       disconnect()
+      
+      // Detener la reunión formalmente en el backend
+      if (meetingId) {
+        await api.post(`/meetings/${meetingId}/stop`)
+      }
+      
       stopRecording()
       
       toast.success('Reunión finalizada. Procesando transcripción...')

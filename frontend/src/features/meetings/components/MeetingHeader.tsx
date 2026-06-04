@@ -2,7 +2,7 @@
  * Header del detalle de reunión
  */
 
-import { ArrowLeft, Calendar, Clock, TrendingUp, Download, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, TrendingUp, Download, Sparkles, Loader2, Mic } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { formatDate, formatDuration } from '@/utils/format'
 
@@ -15,6 +15,7 @@ interface MeetingHeaderProps {
     sentiment?: string
     status: string
     summary?: string
+    has_audio?: boolean
   }
   onBack: () => void
   onExport: (format: 'docx' | 'txt' | 'md') => void
@@ -83,7 +84,7 @@ export function MeetingHeader({
 
 function MeetingMeta({ meeting }: { meeting: MeetingHeaderProps['meeting'] }) {
   return (
-    <div className="flex items-center gap-4 text-sm text-surface-400">
+    <div className="flex items-center flex-wrap gap-4 text-sm text-surface-400">
       <span className="flex items-center gap-1.5">
         <Calendar className="w-4 h-4" />
         {formatDate(meeting.actual_start || meeting.created_at, 'PPp')}
@@ -103,6 +104,13 @@ function MeetingMeta({ meeting }: { meeting: MeetingHeaderProps['meeting'] }) {
         )}>
           <TrendingUp className="w-4 h-4" />
           Sentimiento {meeting.sentiment}
+        </span>
+      )}
+
+      {meeting.has_audio && (
+        <span className="flex items-center gap-1.5 text-primary-400 font-medium bg-primary-500/10 px-2.5 py-0.5 rounded-full border border-primary-500/20">
+          <Mic className="w-3.5 h-3.5 text-primary-400" />
+          Con grabación de audio
         </span>
       )}
     </div>

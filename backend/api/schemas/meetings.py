@@ -85,6 +85,9 @@ class MeetingResponse(BaseModel):
     key_points: Optional[List[str]]
     decisions: Optional[List[str]]
     sentiment: Optional[str]
+    calendar_source: Optional[str] = None
+    calendar_event_id: Optional[str] = None
+    has_audio: bool = False
     created_at: datetime
     participants: Optional[List[ParticipantResponse]] = None
     action_items: Optional[List[ActionItemResponse]] = None
